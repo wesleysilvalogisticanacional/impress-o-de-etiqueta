@@ -8,6 +8,8 @@ export type Base = {
   comEan: number;
   comAlt: number;
   cientifica: number;
+  /** EANs descartados por não poderem virar código de barras (texto com acento, frase…). */
+  invalidos: number;
 };
 
 export type Mapa = { cna: number; ean: number; alt: number };
@@ -42,6 +44,15 @@ export function parseCSV(text: string): string[][] {
       melhor = n;
       sep = c;
     }
+  }
+  // Caminho rápido: sem aspas (como o base_produtos.csv publicado), basta dividir.
+  if (!text.includes('"')) {
+    const out: string[][] = [];
+    for (const l of text.split("\n")) {
+      const r = l.replace(/\r$/, "").split(sep).map(cel);
+      if (r.some((x) => x !== "")) out.push(r);
+    }
+    return out;
   }
   const linhas: string[][] = [];
   let row: string[] = [];
@@ -161,18 +172,27 @@ export function adivinhar(cab: string[]): Mapa {
   return { cna, ean, alt };
 }
 
+/** Tira espaços, tabulações e caracteres invisíveis que vêm colados de outros sistemas. */
+export const limparCodigo = (s: string) => s.replace(/[\s\u00ad\u200b-\u200f\u2060\ufeff]/g, "");
+/** Só ASCII visível e até 48 caracteres vira código de barras; o resto é descartado. */
+const CODIGO_IMPRIMIVEL = /^[\x21-\x7e]{1,48}$/;
+
 export function montarBase(linhas: string[][], m: Mapa, comCab = true): Base {
   const byCna = new Map<string, Produto>();
   const byEan = new Map<string, Produto>();
   let cientifica = 0;
+  let invalidos = 0;
   for (let i = comCab ? 1 : 0; i < linhas.length; i++) {
     const r = linhas[i] ?? [];
     const cna = (r[m.cna] || "").trim();
     if (!cna) continue;
-    let ean = m.ean >= 0 ? (r[m.ean] || "").replace(/\s/g, "") : "";
+    let ean = m.ean >= 0 ? limparCodigo(r[m.ean] || "") : "";
     const alt = m.alt >= 0 ? (r[m.alt] || "").trim() : "";
     if (/\d[.,]\d+e\+?\d+/i.test(ean)) {
       cientifica++;
+      ean = "";
+    } else if (ean && !CODIGO_IMPRIMIVEL.test(ean)) {
+      invalidos++;
       ean = "";
     }
     const k = chave(cna);
@@ -193,7 +213,7 @@ export function montarBase(linhas: string[][], m: Mapa, comCab = true): Base {
     if (p.ean) comEan++;
     if (p.alt) comAlt++;
   }
-  return { byCna, byEan, total: byCna.size, comEan, comAlt, cientifica };
+  return { byCna, byEan, total: byCna.size, comEan, comAlt, cientifica, invalidos };
 }
 
 /** Formato do arquivo publicado em public/base_produtos.csv. */

@@ -516,7 +516,9 @@ export function EtiquetasApp() {
                       </tbody>
                     </table>
                   </div>
-                  {(baseImp.cientifica > 0 || (imp.mapa.ean < 0 && imp.mapa.alt < 0)) && (
+                  {(baseImp.cientifica > 0 ||
+                    baseImp.invalidos > 0 ||
+                    (imp.mapa.ean < 0 && imp.mapa.alt < 0)) && (
                     <div className="etq-aviso">
                       {imp.mapa.ean < 0 && imp.mapa.alt < 0 && (
                         <div>Escolha pelo menos uma coluna de código: EAN ou alternativo.</div>
@@ -526,6 +528,13 @@ export function EtiquetasApp() {
                           {fmtN(baseImp.cientifica)} EAN(s) estão no formato 7,89E+12 e foram
                           perdidos. No Excel, formate a coluna EAN como Texto antes de salvar, ou
                           abra o arquivo .xlsx.
+                        </div>
+                      )}
+                      {baseImp.invalidos > 0 && (
+                        <div>
+                          {fmtN(baseImp.invalidos)} EAN(s) têm texto em vez de código (ex.: frase ou
+                          palavra com acento) e esses produtos ficaram sem código de barras. Corrija
+                          na planilha se precisar imprimir.
                         </div>
                       )}
                     </div>

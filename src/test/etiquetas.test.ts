@@ -95,6 +95,26 @@ describe("base de produtos", () => {
     expect(baseParaCSV(b)).toBe("cna;ean;alternativo\n00100245;7891234567895;ABC-4521\n100246;;\n");
   });
 
+  it("limpa caracteres invisíveis e descarta texto no lugar do EAN", () => {
+    const b = montarBase(
+      [
+        ["cna", "ean", "alternativo"],
+        ["1", "\u00a07899849808785", "A"],
+        ["2", "\u00ad4041248904091", "B"],
+        ["3", "8033573102941\t", "C"],
+        ["4", "ESTAMOS AGUARDANDO INFORMAÇÃO MATRIZ", "D"],
+        ["5", "AS640397001501", "E"],
+      ],
+      { cna: 0, ean: 1, alt: 2 },
+    );
+    expect(buscar(b, "1")?.ean).toBe("7899849808785");
+    expect(buscar(b, "2")?.ean).toBe("4041248904091");
+    expect(buscar(b, "3")?.ean).toBe("8033573102941");
+    expect(buscar(b, "4")?.ean).toBe("");
+    expect(buscar(b, "5")?.ean).toBe("AS640397001501");
+    expect(b.invalidos).toBe(1);
+  });
+
   it("lê a lista colada do Excel", () => {
     expect(lerColagem("CNA\tQtd\n100245\t3\n100246 2\n200771")).toEqual([
       { cna: "100245", qtd: 3 },
