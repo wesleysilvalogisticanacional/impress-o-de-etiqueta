@@ -1,0 +1,718 @@
+/*
+ * Etiquetas Rede ANCORA — estilos da tela e da impressão.
+ * Cores do manual da marca (Azul #003A5D, Verde #3DAE2B, Vermelho #CE0E2D,
+ * Cinza escuro #4B4F54, Cinza claro #9AA2A5) e tons Grafite no tema escuro.
+ * Layout: balcão de trabalho em duas colunas — à esquerda a lista que a filial monta,
+ * à direita a etiqueta real e o botão Imprimir. Empilha no celular.
+ */
+:root {
+  --fundo: #ffffff;
+  --cartao: #ffffff;
+  --campo: #ffffff;
+  --borda: #9aa2a5;
+  --texto: #4b4f54;
+  --texto-sec: #4b4f54;
+  --titulo: #003a5d;
+  --primario: #003a5d;
+  --primario-texto: #ffffff;
+  --primario-hover-fundo: #ffffff;
+  --primario-hover-texto: #003a5d;
+  --alerta: #ce0e2d;
+  --alerta-fundo: #ffffff;
+  --alerta-texto: #ce0e2d;
+  --erro-fundo: transparent;
+  --erro-texto: #ce0e2d;
+  --destaque: #3dae2b;
+  --linha-sel: #eef1f2;
+  --foco: #3dae2b;
+  /* Cabeçalho: igual nos dois temas, no modelo do Centro de Controle */
+  --topo: #003a5d;
+  --topo-linha: #3dae2b;
+  --topo-texto: #ffffff;
+  --topo-sec: #9aa2a5;
+  --topo-divisor: rgba(255, 255, 255, 0.28);
+  --seletor-ativo: #ffffff;
+  --seletor-ativo-texto: #003a5d;
+  /* Etiqueta: papel e tinta reais nos dois temas */
+  --papel: #ffffff;
+  --tinta: #000000;
+  --papel-sombra: rgba(0, 58, 93, 0.18);
+  --fonte: "Roboto Condensed", "Arial Narrow", "Helvetica Neue", Arial, sans-serif;
+  --r: 8px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --fundo: #212429;
+    --cartao: #383838;
+    --campo: #323232;
+    --borda: #3e3f41;
+    --texto: #ffffff;
+    --texto-sec: #9aa2a5;
+    --titulo: #ffffff;
+    --primario: #3dae2b;
+    --primario-texto: #ffffff;
+    --primario-hover-fundo: transparent;
+    --primario-hover-texto: #3dae2b;
+    --alerta-fundo: #ce0e2d;
+    --alerta-texto: #ffffff;
+    --erro-fundo: #ce0e2d;
+    --erro-texto: #ffffff;
+    --linha-sel: #323232;
+    --papel-sombra: rgba(0, 0, 0, 0.5);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --fundo: #212429;
+  --cartao: #383838;
+  --campo: #323232;
+  --borda: #3e3f41;
+  --texto: #ffffff;
+  --texto-sec: #9aa2a5;
+  --titulo: #ffffff;
+  --primario: #3dae2b;
+  --primario-texto: #ffffff;
+  --primario-hover-fundo: transparent;
+  --primario-hover-texto: #3dae2b;
+  --alerta-fundo: #ce0e2d;
+  --alerta-texto: #ffffff;
+  --erro-fundo: #ce0e2d;
+  --erro-texto: #ffffff;
+  --linha-sel: #323232;
+  --papel-sombra: rgba(0, 0, 0, 0.5);
+  color-scheme: dark;
+}
+
+body {
+  background: var(--fundo);
+  color: var(--texto);
+  font-family: var(--fonte);
+  font-size: 16px;
+  line-height: 1.45;
+}
+.etq-app h1,
+.etq-app h2,
+.etq-app h3 {
+  color: var(--titulo);
+  margin: 0;
+  text-wrap: balance;
+  font-weight: 700;
+}
+.etq-app :focus-visible {
+  outline: 2px solid var(--foco);
+  outline-offset: 2px;
+}
+.etq-app .num {
+  font-variant-numeric: tabular-nums;
+}
+.etq-app [hidden] {
+  display: none !important;
+}
+
+/* Cabeçalho */
+.etq-topo {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  background: var(--topo);
+  border-bottom: 5px solid var(--topo-linha);
+}
+.etq-topo-in {
+  max-width: 1180px;
+  margin: 0 auto;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  padding-block: 12px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.etq-marca {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  min-width: 0;
+}
+.etq-marca img {
+  width: 100px;
+  height: auto;
+  display: block;
+  flex: none;
+}
+.etq-marca-sep {
+  width: 1px;
+  align-self: stretch;
+  margin-block: 14px;
+  background: var(--topo-divisor);
+}
+.etq-marca-txt {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.etq-marca-nome {
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--topo-texto);
+  text-transform: uppercase;
+  letter-spacing: 0.01em;
+}
+.etq-app .etq-marca h1 {
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.2;
+  color: var(--topo-sec);
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+}
+.etq-tema {
+  display: inline-flex;
+  border: 1px solid var(--topo-divisor);
+  border-radius: 999px;
+  padding: 2px;
+  gap: 2px;
+  flex: none;
+}
+.etq-tema button {
+  width: 32px;
+  height: 28px;
+  border: 0;
+  background: transparent;
+  border-radius: 999px;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  color: var(--topo-sec);
+}
+.etq-tema button:hover {
+  color: var(--topo-texto);
+}
+.etq-tema button[aria-pressed="true"] {
+  background: var(--seletor-ativo);
+  color: var(--seletor-ativo-texto);
+}
+.etq-tema svg {
+  width: 16px;
+  height: 16px;
+}
+@media (max-width: 640px) {
+  .etq-topo-in {
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .etq-marca {
+    gap: 16px;
+  }
+  .etq-marca-nome {
+    font-size: 20px;
+  }
+  .etq-app .etq-marca h1 {
+    font-size: 12px;
+    letter-spacing: 0.14em;
+  }
+}
+
+/* Estrutura */
+.etq-main {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding-block: 20px 48px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 380px;
+  gap: 24px;
+  align-items: start;
+}
+@media (max-width: 900px) {
+  .etq-main {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.etq-col {
+  display: grid;
+  gap: 20px;
+  min-width: 0;
+}
+.etq-lateral {
+  position: sticky;
+  top: 132px;
+}
+@media (max-width: 900px) {
+  .etq-lateral {
+    position: static;
+  }
+}
+
+.etq-cartao {
+  background: var(--cartao);
+  border: 1px solid var(--borda);
+  border-radius: var(--r);
+  padding: 18px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 14px;
+  min-width: 0;
+}
+.etq-cartao > * {
+  min-width: 0;
+}
+.etq-cartao > header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.etq-app .etq-cartao h2 {
+  font-size: 18px;
+}
+.etq-rotulo {
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--texto-sec);
+  font-weight: 500;
+}
+.etq-sec {
+  color: var(--texto-sec);
+  font-size: 14px;
+}
+
+/* Botões */
+.etq-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 8px 16px;
+  border-radius: 6px;
+  border: 1px solid var(--primario);
+  background: var(--primario);
+  color: var(--primario-texto);
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  transition:
+    background 0.15s,
+    color 0.15s;
+}
+.etq-btn:hover:not(:disabled) {
+  background: var(--primario-hover-fundo);
+  color: var(--primario-hover-texto);
+}
+.etq-btn.sec2 {
+  background: transparent;
+  color: var(--titulo);
+  border-color: var(--borda);
+  font-weight: 500;
+}
+.etq-btn.sec2:hover:not(:disabled) {
+  border-color: var(--destaque);
+  color: var(--titulo);
+  background: transparent;
+}
+.etq-btn.grande {
+  min-height: 52px;
+  font-size: 18px;
+  width: 100%;
+}
+.etq-btn:disabled {
+  background: transparent;
+  border-color: var(--borda);
+  color: var(--texto-sec);
+  cursor: not-allowed;
+}
+.etq-link {
+  background: none;
+  border: 0;
+  padding: 0;
+  color: var(--titulo);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+  font-size: 14px;
+}
+.etq-link:hover {
+  color: var(--destaque);
+}
+
+/* Campos */
+.etq-campo {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+.etq-campo label {
+  font-size: 13px;
+  color: var(--texto-sec);
+  font-weight: 500;
+}
+.etq-app input[type="text"],
+.etq-app input[type="number"],
+.etq-app select,
+.etq-app textarea {
+  background: var(--campo);
+  border: 1px solid var(--borda);
+  border-radius: 6px;
+  padding: 9px 12px;
+  min-height: 44px;
+  width: 100%;
+  color: var(--texto);
+}
+.etq-app input:focus,
+.etq-app select:focus,
+.etq-app textarea:focus {
+  border-color: var(--foco);
+  outline: none;
+  box-shadow: 0 0 0 1px var(--foco);
+}
+.etq-app input:disabled {
+  opacity: 0.6;
+}
+.etq-app textarea {
+  min-height: 120px;
+  resize: vertical;
+  font-variant-numeric: tabular-nums;
+}
+.etq-linha-add {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 96px auto;
+  gap: 10px;
+  align-items: end;
+}
+@media (max-width: 520px) {
+  .etq-linha-add {
+    grid-template-columns: minmax(0, 1fr) 84px;
+  }
+  .etq-linha-add .etq-btn {
+    grid-column: 1 / -1;
+  }
+}
+#busca {
+  font-size: 20px;
+  letter-spacing: 0.02em;
+}
+
+/* Situação da base */
+.etq-base {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px 20px;
+  flex-wrap: wrap;
+}
+.etq-base-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+.etq-ponto {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--borda);
+  flex: none;
+}
+.etq-ponto.ok {
+  background: var(--destaque);
+}
+.etq-ponto.erro {
+  background: var(--alerta);
+}
+.etq-ponto.esperando {
+  animation: etq-pulsa 1.2s ease-in-out infinite;
+}
+@keyframes etq-pulsa {
+  50% {
+    opacity: 0.35;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .etq-ponto.esperando {
+    animation: none;
+  }
+}
+.etq-base-txt strong {
+  color: var(--titulo);
+  display: block;
+}
+.etq-base-acoes {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.etq-tag {
+  font-size: 12px;
+  border: 1px solid var(--borda);
+  border-radius: 999px;
+  padding: 1px 8px;
+  color: var(--texto-sec);
+  margin-left: 6px;
+  font-weight: 400;
+}
+
+/* Mensagens */
+.etq-aviso {
+  border: 1px solid var(--alerta);
+  background: var(--alerta-fundo);
+  color: var(--alerta-texto);
+  border-radius: 6px;
+  padding: 10px 12px;
+  font-size: 14px;
+}
+.etq-ok {
+  border: 1px solid var(--destaque);
+  border-radius: 6px;
+  padding: 10px 12px;
+  font-size: 14px;
+}
+.etq-msg {
+  min-height: 22px;
+  font-size: 14px;
+  color: var(--texto-sec);
+}
+.etq-erro-txt {
+  color: var(--erro-texto);
+  background: var(--erro-fundo);
+  border-radius: 4px;
+  padding: 1px 6px;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+}
+
+/* Lista */
+.etq-tabela-wrap {
+  position: relative;
+  overflow-x: auto;
+  margin-inline: -18px;
+  padding-inline: 18px;
+}
+.etq-app table {
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+.etq-app th {
+  text-align: left;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--texto-sec);
+  font-weight: 500;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--borda);
+  white-space: nowrap;
+}
+.etq-app td {
+  padding: 8px;
+  border-bottom: 1px solid var(--borda);
+  vertical-align: middle;
+  white-space: nowrap;
+}
+.etq-lista tbody tr {
+  cursor: pointer;
+}
+.etq-lista tbody tr.sel {
+  background: var(--linha-sel);
+  box-shadow: inset 3px 0 0 var(--destaque);
+}
+.etq-lista td.cna {
+  font-weight: 700;
+  color: var(--titulo);
+}
+.etq-chip {
+  display: inline-block;
+  font-size: 12px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--alerta);
+  color: var(--erro-texto);
+  background: var(--erro-fundo);
+  white-space: nowrap;
+}
+.etq-lista td input[type="number"] {
+  width: 76px;
+  min-height: 36px;
+  padding: 4px 8px;
+  text-align: right;
+}
+.etq-tirar {
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  background: transparent;
+  cursor: pointer;
+  color: var(--texto-sec);
+  font-size: 20px;
+  line-height: 1;
+}
+.etq-tirar:hover {
+  border-color: var(--alerta);
+  color: var(--alerta);
+}
+.etq-vazio {
+  text-align: center;
+  padding: 28px 12px;
+  color: var(--texto-sec);
+  border: 1px dashed var(--borda);
+  border-radius: var(--r);
+  display: grid;
+  gap: 6px;
+  justify-items: center;
+}
+.etq-vazio strong {
+  color: var(--titulo);
+  font-size: 17px;
+}
+.etq-totais {
+  font-size: 15px;
+}
+.etq-totais b {
+  color: var(--titulo);
+  font-size: 18px;
+}
+
+.etq-detalhes summary {
+  cursor: pointer;
+  color: var(--titulo);
+  font-weight: 500;
+  font-size: 15px;
+}
+.etq-detalhes[open] summary {
+  margin-bottom: 10px;
+}
+.etq-detalhes .etq-detalhes-in {
+  display: grid;
+  gap: 10px;
+}
+
+/* Etiqueta (prévia) */
+.etq-palco {
+  display: grid;
+  place-items: center;
+  padding: 22px 8px;
+  border-radius: var(--r);
+  background: repeating-linear-gradient(135deg, transparent 0 10px, var(--linha-sel) 10px 11px);
+}
+.etq-folha {
+  width: 100%;
+  max-width: 320px;
+  background: var(--papel);
+  border-radius: 3px;
+  box-shadow:
+    0 6px 18px var(--papel-sombra),
+    0 0 0 1px var(--borda);
+}
+.etq-folha svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+.etq-legenda {
+  font-size: 14px;
+  color: var(--texto-sec);
+  text-align: center;
+}
+
+.etq-passos {
+  margin: 0;
+  padding-left: 20px;
+  display: grid;
+  gap: 8px;
+  font-size: 14px;
+  list-style: decimal;
+}
+.etq-passos b {
+  color: var(--titulo);
+}
+.etq-rolo {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 10px;
+}
+.etq-rolo .etq-campo label {
+  font-size: 12px;
+}
+.etq-app .etq-rolo input,
+.etq-app .etq-rolo select {
+  min-height: 38px;
+  padding: 6px 10px;
+}
+.etq-papel {
+  font-size: 14px;
+  border: 1px solid var(--borda);
+  border-radius: 6px;
+  padding: 8px 12px;
+}
+.etq-papel b {
+  color: var(--titulo);
+}
+
+/* Importação */
+.etq-mapa {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+@media (max-width: 640px) {
+  .etq-mapa {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.etq-amostra {
+  font-size: 14px;
+}
+.etq-amostra td {
+  padding: 4px 8px;
+}
+.etq-acoes {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+/* Impressão: cada página é uma linha do rolo; só as etiquetas saem no papel. */
+.etq-impressao {
+  display: none;
+}
+@media print {
+  html,
+  body {
+    background: #ffffff !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+  .etq-app {
+    display: none !important;
+  }
+  .etq-impressao {
+    display: block !important;
+  }
+  .etq-pagina {
+    position: relative;
+    overflow: hidden;
+    break-after: page;
+    page-break-after: always;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .etq-pagina:last-child {
+    break-after: auto;
+    page-break-after: auto;
+  }
+  .etq-pagina svg {
+    position: absolute;
+    top: 0;
+    display: block;
+  }
+}

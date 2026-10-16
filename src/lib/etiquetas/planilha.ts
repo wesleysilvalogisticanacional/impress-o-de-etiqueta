@@ -1,0 +1,243 @@
+import { chave, type Produto } from "./codigos";
+
+/** Base de produtos em memória: busca por CNA e por EAN. */
+export type Base = {
+  byCna: Map<string, Produto>;
+  byEan: Map<string, Produto>;
+  total: number;
+  comEan: number;
+  comAlt: number;
+  cientifica: number;
+};
+
+export type Mapa = { cna: number; ean: number; alt: number };
+
+const semAcento = (s: string) => String(s).normalize("NFD").replace(/[̀-ͯ]/g, "");
+export const normCab = (s: string) =>
+  semAcento(s)
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "");
+
+/** Texto da célula sem estragar códigos numéricos (7891234567895, 100245.0 → 100245). */
+export function cel(v: unknown): string {
+  if (v == null) return "";
+  if (typeof v === "number") {
+    if (Number.isInteger(v)) return String(v);
+    return Math.abs(v - Math.round(v)) < 1e-6 ? String(Math.round(v)) : String(v);
+  }
+  let s = String(v).trim();
+  if (/^\d+\.0+$/.test(s)) s = s.split(".")[0] ?? s;
+  return s;
+}
+
+/** CSV com ; , TAB ou | (detecta pela primeira linha), aspas opcionais. */
+export function parseCSV(text: string): string[][] {
+  const nl = text.indexOf("\n");
+  const primeira = nl >= 0 ? text.slice(0, nl) : text;
+  let sep = ";";
+  let melhor = -1;
+  for (const c of [";", "\t", ",", "|"]) {
+    const n = primeira.split(c).length - 1;
+    if (n > melhor) {
+      melhor = n;
+      sep = c;
+    }
+  }
+  const linhas: string[][] = [];
+  let row: string[] = [];
+  let f = "";
+  let q = false;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i] ?? "";
+    if (q) {
+      if (ch === '"') {
+        if (text[i + 1] === '"') {
+          f += '"';
+          i++;
+        } else q = false;
+      } else f += ch;
+    } else if (ch === '"' && f === "") q = true;
+    else if (ch === sep) {
+      row.push(f);
+      f = "";
+    } else if (ch === "\n") {
+      row.push(f);
+      linhas.push(row);
+      row = [];
+      f = "";
+    } else if (ch !== "\r") f += ch;
+  }
+  if (f !== "" || row.length) {
+    row.push(f);
+    linhas.push(row);
+  }
+  return linhas.map((r) => r.map(cel)).filter((r) => r.some((x) => x !== ""));
+}
+
+/** UTF-8 primeiro; se não for, Windows-1252 (o Excel salva CSV assim no Windows). */
+export function decodificar(buf: ArrayBuffer): string {
+  let t: string;
+  try {
+    t = new TextDecoder("utf-8", { fatal: true }).decode(buf);
+  } catch {
+    t = new TextDecoder("windows-1252").decode(buf);
+  }
+  return t.replace(/^\uFEFF/, "");
+}
+
+type SheetJS = {
+  read: (
+    d: ArrayBuffer,
+    o: { type: "array" },
+  ) => { SheetNames: string[]; Sheets: Record<string, unknown> };
+  utils: { sheet_to_json: (ws: unknown, o: { header: 1; raw: true; defval: "" }) => unknown[][] };
+};
+
+let xlsxP: Promise<SheetJS> | null = null;
+/** O leitor de Excel só é baixado quando alguém abre um .xlsx. */
+function carregarXLSX(): Promise<SheetJS> {
+  const w = window as unknown as { XLSX?: SheetJS };
+  if (w.XLSX) return Promise.resolve(w.XLSX);
+  if (!xlsxP) {
+    xlsxP = new Promise((ok, falha) => {
+      const s = document.createElement("script");
+      s.src = "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js";
+      s.onload = () => (w.XLSX ? ok(w.XLSX) : falha(new Error("Leitor de Excel indisponível.")));
+      s.onerror = () => {
+        xlsxP = null;
+        falha(
+          new Error(
+            "Não foi possível abrir o leitor de Excel. Salve a planilha como CSV e tente de novo.",
+          ),
+        );
+      };
+      document.head.appendChild(s);
+    });
+  }
+  return xlsxP;
+}
+
+export async function lerPlanilha(file: File): Promise<string[][]> {
+  if (/\.xls[xm]$/i.test(file.name)) {
+    const XLSX = await carregarXLSX();
+    const wb = XLSX.read(await file.arrayBuffer(), { type: "array" });
+    const ws = wb.Sheets[wb.SheetNames[0] ?? ""];
+    const rows = XLSX.utils.sheet_to_json(ws, { header: 1, raw: true, defval: "" });
+    return rows.map((r) => r.map(cel)).filter((r) => r.some((x) => x !== ""));
+  }
+  return parseCSV(decodificar(await file.arrayBuffer()));
+}
+
+/** Adivinha as colunas pelo cabeçalho (acentos e maiúsculas não importam). */
+export function adivinhar(cab: string[]): Mapa {
+  const n = cab.map(normCab);
+  const achar = (testes: ((h: string) => boolean)[], evitar: number[] = []) => {
+    for (const t of testes) {
+      const i = n.findIndex((h, k) => !evitar.includes(k) && t(h));
+      if (i >= 0) return i;
+    }
+    return -1;
+  };
+  const cna = achar([(h) => h === "cna", (h) => h.includes("cna")]);
+  const alt = achar(
+    [
+      (h) => h.includes("alternativ"),
+      (h) => h === "alt",
+      (h) => h.includes("codalt"),
+      (h) => h.includes("referencia"),
+      (h) => h === "ref",
+    ],
+    [cna],
+  );
+  const ean = achar(
+    [
+      (h) => h === "ean",
+      (h) => h.includes("ean"),
+      (h) => h.includes("gtin"),
+      (h) => h.includes("barra"),
+    ],
+    [cna, alt],
+  );
+  return { cna, ean, alt };
+}
+
+export function montarBase(linhas: string[][], m: Mapa, comCab = true): Base {
+  const byCna = new Map<string, Produto>();
+  const byEan = new Map<string, Produto>();
+  let cientifica = 0;
+  for (let i = comCab ? 1 : 0; i < linhas.length; i++) {
+    const r = linhas[i] ?? [];
+    const cna = (r[m.cna] || "").trim();
+    if (!cna) continue;
+    let ean = m.ean >= 0 ? (r[m.ean] || "").replace(/\s/g, "") : "";
+    const alt = m.alt >= 0 ? (r[m.alt] || "").trim() : "";
+    if (/\d[.,]\d+e\+?\d+/i.test(ean)) {
+      cientifica++;
+      ean = "";
+    }
+    const k = chave(cna);
+    const ex = byCna.get(k);
+    if (!ex) {
+      const p = { cna, ean, alt };
+      byCna.set(k, p);
+      if (ean) byEan.set(chave(ean), p);
+    } else if (!ex.ean && ean) {
+      ex.ean = ean;
+      byEan.set(chave(ean), ex);
+      if (!ex.alt) ex.alt = alt;
+    }
+  }
+  let comEan = 0;
+  let comAlt = 0;
+  for (const p of byCna.values()) {
+    if (p.ean) comEan++;
+    if (p.alt) comAlt++;
+  }
+  return { byCna, byEan, total: byCna.size, comEan, comAlt, cientifica };
+}
+
+/** Formato do arquivo publicado em public/base_produtos.csv. */
+export function baseParaCSV(b: Base): string {
+  const limpa = (s: string) =>
+    String(s)
+      .replace(/[;\r\n"]/g, " ")
+      .trim();
+  const out = ["cna;ean;alternativo"];
+  for (const p of b.byCna.values())
+    out.push(limpa(p.cna) + ";" + limpa(p.ean) + ";" + limpa(p.alt));
+  return out.join("\n") + "\n";
+}
+
+export function buscar(b: Base | null, txt: string): Produto | null {
+  if (!b) return null;
+  const k = chave(txt);
+  return b.byCna.get(k) || b.byEan.get(k) || null;
+}
+
+/** Linhas coladas do Excel: CNA e quantidade (TAB, ; , ou espaço). */
+export function lerColagem(texto: string): { cna: string; qtd: number }[] {
+  const out: { cna: string; qtd: number }[] = [];
+  texto
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter(Boolean)
+    .forEach((l, n) => {
+      const partes = l
+        .split(/[\t;,]+|\s{2,}|\s+(?=\d+$)/)
+        .map((s) => s.trim())
+        .filter(Boolean);
+      if (!partes.length) return;
+      const cna = partes[0] ?? "";
+      if (n === 0 && ["cna", "codigo", "produto"].includes(normCab(cna))) return;
+      const qtd = Math.max(1, Math.min(999, parseInt(partes[1] ?? "", 10) || 1));
+      out.push({ cna, qtd });
+    });
+  return out;
+}
+
+export const EXEMPLO: string[][] = [
+  ["cna", "ean", "alternativo"],
+  ["100245", "7891234567895", "ABC-4521"],
+  ["100246", "7896543210982", ""],
+  ["200771", "", "KT90210X"],
+];
