@@ -198,11 +198,29 @@ body {
   width: 16px;
   height: 16px;
 }
+.etq-topo-acoes {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  min-width: 0;
+}
+.etq-usuario {
+  color: var(--topo-sec);
+  font-size: 14px;
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+a.etq-sair {
+  text-decoration: none;
+}
 .etq-sair {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  margin-left: 8px;
   padding: 4px 12px;
   border: 1px solid var(--topo-divisor);
   border-radius: 999px;
@@ -796,5 +814,53 @@ body {
     position: absolute;
     top: 0;
     display: block;
+  }
+}
+
+/* Painel de acesso */
+.etq-main-uma {
+  grid-template-columns: minmax(0, 1fr);
+  max-width: 1080px;
+}
+.etq-voltar {
+  font-size: 14px;
+}
+.etq-acesso-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) 160px auto;
+  gap: 10px;
+  align-items: end;
+}
+@media (max-width: 760px) {
+  .etq-acesso-form {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.etq-acessos td select {
+  min-height: 34px;
+  padding: 4px 8px;
+  width: auto;
+}
+.etq-acessos tr.bloq td {
+  color: var(--texto-sec);
+}
+.etq-situacao {
+  display: inline-block;
+  font-size: 12px;
+  padding: 1px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--destaque);
+  white-space: nowrap;
+}
+.etq-situacao.bloqueado {
+  border-color: var(--alerta);
+  color: var(--erro-texto);
+  background: var(--erro-fundo);
+}
+
+/* No celular o cabeçalho fica alto: rola junto com a página em vez de ficar fixo. */
+@media (max-width: 640px) {
+  .etq-topo {
+    position: static;
   }
 }

@@ -29,6 +29,17 @@ cna;ean;alternativo;descricao;marca
 Cuidado com o Excel: salvar EAN como número pode virar `7,89E+12`. Formate a coluna EAN como
 Texto antes de salvar o CSV, ou use o `.xlsx` direto no passo 1.
 
+## Acesso (ANCORA ID + painel de acesso)
+
+- O login é pelo **ANCORA ID** (botão "Entrar com ANCORA ID"). Só entra quem estiver liberado no
+  painel de acesso, em **Acessos** no cabeçalho (só para administradores) ou em `/admin/usuarios`.
+- No painel: liberar um e-mail `@redeancora.com.br` (ou vários de uma vez), escolher o papel
+  (**Usuário** imprime etiquetas; **Administrador** também gerencia os acessos), bloquear e reativar.
+  Bloquear encerra na hora as sessões abertas da pessoa.
+- Ninguém consegue bloquear nem tirar o próprio papel de administrador.
+- Enquanto a TI não enviar `OIDC_CLIENT_ID` e `OIDC_CLIENT_SECRET` (Secrets do Lovable Cloud), o botão
+  de login mostra "Login OIDC não configurado — aguardando credenciais da TI".
+
 ## Preparar cada computador com Argox (uma vez)
 
 1. Instale o driver da Argox para Windows.
