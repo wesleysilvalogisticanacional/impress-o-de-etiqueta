@@ -1,8 +1,10 @@
 # Etiquetas Rede ANCORA
 
 Impressão de etiquetas de código de barras das filiais da Rede ANCORA nas impressoras Argox
-(OS-2140 e OS-214plus). A filial digita ou bipa o CNA (ou o EAN), escolhe a quantidade e clica em
-**Imprimir**: cada página impressa é uma linha do rolo, com 2 etiquetas de 50 × 30 mm.
+(OS-2140 e OS-214plus). A filial escolhe **Buscar por: CNA ou EAN** ou **Código alternativo**, digita
+ou bipa um ou mais códigos (separados por `;`), escolhe a quantidade e clica em **Imprimir**: cada
+página impressa é uma linha do rolo, com 2 etiquetas de 50 × 30 mm. Quando um código alternativo
+existe em mais de um produto, o app mostra marca, CNA e descrição para escolher.
 
 Etiqueta: código alternativo em destaque, "CNA 921173 - DESCRIÇÃO DO PRODUTO" abaixo (até 2 linhas;
 descrição longa termina com "…") e o código de barras do EAN.
@@ -13,12 +15,12 @@ A base fica no arquivo [`public/base_produtos.csv.gz`](public/base_produtos.csv.
 compactado (gzip, ~4× menor), no formato:
 
 ```
-cna;ean;alternativo;descricao
-921173;7898590390969;106002;TAMPA PROTECAO CORREIA EXTERNA
+cna;ean;alternativo;descricao;marca
+921173;7898590390969;106002;TAMPA PROTECAO CORREIA EXTERNA;2M PLASTIC
 ```
 
 1. No app, clique em **Abrir arquivo da base** e escolha a exportação do sistema (CSV ou Excel)
-   com CNA, código de barras, código alternativo e descrição.
+   com CNA, código de barras, código alternativo, descrição e marca.
 2. Confira as colunas e clique em **Baixar arquivo para publicar**. Sai o `base_produtos.csv.gz`.
 3. No GitHub, abra a pasta `public`, clique em **Add file › Upload files**, envie o
    `base_produtos.csv.gz` (substitui o anterior) e confirme em **Commit changes**.

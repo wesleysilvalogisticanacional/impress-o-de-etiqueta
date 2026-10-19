@@ -4,6 +4,8 @@ import { chave, type Produto } from "./codigos";
 export type Base = {
   byCna: Map<string, Produto>;
   byEan: Map<string, Produto>;
+  /** O mesmo código alternativo pode existir em marcas diferentes. */
+  byAlt: Map<string, Produto[]>;
   total: number;
   comEan: number;
   comAlt: number;
@@ -13,7 +15,7 @@ export type Base = {
   invalidos: number;
 };
 
-export type Mapa = { cna: number; ean: number; alt: number; desc: number };
+export type Mapa = { cna: number; ean: number; alt: number; desc: number; marca: number };
 
 const semAcento = (s: string) => String(s).normalize("NFD").replace(/[̀-ͯ]/g, "");
 export const normCab = (s: string) =>
@@ -174,7 +176,11 @@ export function adivinhar(cab: string[]): Mapa {
     [(h) => h.startsWith("descri"), (h) => h.includes("descri"), (h) => h === "nome"],
     [cna, alt, ean],
   );
-  return { cna, ean, alt, desc };
+  const marca = achar(
+    [(h) => h === "marca", (h) => h.includes("marca"), (h) => h.includes("fabricante")],
+    [cna, alt, ean, desc],
+  );
+  return { cna, ean, alt, desc, marca };
 }
 
 /** Tira espaços, tabulações e caracteres invisíveis que vêm colados de outros sistemas. */
@@ -201,6 +207,7 @@ export function montarBase(linhas: string[][], m: Mapa, comCab = true): Base {
     let ean = m.ean >= 0 ? limparCodigo(r[m.ean] || "") : "";
     const alt = m.alt >= 0 ? limparTexto(r[m.alt] || "") : "";
     const desc = m.desc >= 0 ? limparTexto(r[m.desc] || "") : "";
+    const marca = m.marca >= 0 ? limparTexto(r[m.marca] || "") : "";
     if (/\d[.,]\d+e\+?\d+/i.test(ean)) {
       cientifica++;
       ean = "";
@@ -211,7 +218,7 @@ export function montarBase(linhas: string[][], m: Mapa, comCab = true): Base {
     const k = chave(cna);
     const ex = byCna.get(k);
     if (!ex) {
-      const p = { cna, ean, alt, desc };
+      const p = { cna, ean, alt, desc, marca };
       byCna.set(k, p);
       if (ean) byEan.set(chave(ean), p);
     } else if (!ex.ean && ean) {
@@ -219,17 +226,35 @@ export function montarBase(linhas: string[][], m: Mapa, comCab = true): Base {
       byEan.set(chave(ean), ex);
       if (!ex.alt) ex.alt = alt;
       if (!ex.desc) ex.desc = desc;
+      if (!ex.marca) ex.marca = marca;
     }
   }
   let comEan = 0;
   let comAlt = 0;
   let comDesc = 0;
+  const byAlt = new Map<string, Produto[]>();
   for (const p of byCna.values()) {
+    if (p.alt) {
+      const k = chave(p.alt);
+      const lista = byAlt.get(k);
+      if (lista) lista.push(p);
+      else byAlt.set(k, [p]);
+    }
     if (p.ean) comEan++;
     if (p.alt) comAlt++;
     if (p.desc) comDesc++;
   }
-  return { byCna, byEan, total: byCna.size, comEan, comAlt, comDesc, cientifica, invalidos };
+  return {
+    byCna,
+    byEan,
+    byAlt,
+    total: byCna.size,
+    comEan,
+    comAlt,
+    comDesc,
+    cientifica,
+    invalidos,
+  };
 }
 
 /** Formato do arquivo publicado em public/base_produtos.csv.gz (CSV compactado). */
@@ -238,9 +263,54 @@ export function baseParaCSV(b: Base): string {
     String(s)
       .replace(/[;\r\n"]/g, " ")
       .trim();
-  const out = ["cna;ean;alternativo;descricao"];
-  for (const p of b.byCna.values()) out.push([p.cna, p.ean, p.alt, p.desc].map(limpa).join(";"));
+  const out = ["cna;ean;alternativo;descricao;marca"];
+  for (const p of b.byCna.values())
+    out.push([p.cna, p.ean, p.alt, p.desc, p.marca].map(limpa).join(";"));
   return out.join("\n") + "\n";
+}
+
+export type ModoBusca = "cna" | "alt";
+
+/** Códigos digitados ou bipados juntos: separados por ";" ou por linha. */
+export const separarCodigos = (texto: string) =>
+  texto
+    .split(/[;\r\n]+/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+
+export type Resolucao = {
+  achados: { cna: string; qtd: number }[];
+  faltam: string[];
+  /** Código alternativo que existe em mais de um produto: a pessoa escolhe qual. */
+  escolher: { codigo: string; qtd: number; opcoes: Produto[] }[];
+};
+
+/** Procura cada código no modo escolhido: CNA/EAN, ou código alternativo. */
+export function resolverCodigos(
+  b: Base,
+  modo: ModoBusca,
+  entradas: { codigo: string; qtd: number }[],
+): Resolucao {
+  const r: Resolucao = { achados: [], faltam: [], escolher: [] };
+  for (const { codigo, qtd } of entradas) {
+    if (modo === "cna") {
+      const p = buscar(b, codigo);
+      if (p) r.achados.push({ cna: p.cna, qtd });
+      else r.faltam.push(codigo);
+      continue;
+    }
+    const opcoes = b.byAlt.get(chave(codigo)) ?? [];
+    const unico = opcoes[0];
+    if (opcoes.length === 1 && unico) r.achados.push({ cna: unico.cna, qtd });
+    else if (opcoes.length > 1) r.escolher.push({ codigo, qtd, opcoes });
+    else {
+      // Leitor de código de barras no modo alternativo: aceita o EAN também.
+      const porEan = b.byEan.get(chave(codigo));
+      if (porEan) r.achados.push({ cna: porEan.cna, qtd });
+      else r.faltam.push(codigo);
+    }
+  }
+  return r;
 }
 
 export function buscar(b: Base | null, txt: string): Produto | null {
@@ -271,10 +341,17 @@ export function lerColagem(texto: string): { cna: string; qtd: number }[] {
 }
 
 export const EXEMPLO: string[][] = [
-  ["cna", "ean", "alternativo", "descricao"],
-  ["100245", "7891234567895", "ABC-4521", "FILTRO OLEO MOTOR"],
-  ["100246", "7896543210982", "PF2210", "PASTILHA FREIO DIANTEIRA CERAMICA C/ SENSOR DE DESGASTE"],
-  ["200771", "", "KT90210X", "KIT CORREIA DENTADA C/ TENSOR"],
+  ["cna", "ean", "alternativo", "descricao", "marca"],
+  ["100245", "7891234567895", "ABC-4521", "FILTRO OLEO MOTOR", "MARCA A"],
+  [
+    "100246",
+    "7896543210982",
+    "PF2210",
+    "PASTILHA FREIO DIANTEIRA CERAMICA C/ SENSOR DE DESGASTE",
+    "MARCA B",
+  ],
+  ["200771", "", "KT90210X", "KIT CORREIA DENTADA C/ TENSOR", "MARCA C"],
+  ["200772", "7891000100103", "PF2210", "PASTILHA FREIO TRASEIRA", "MARCA D"],
 ];
 
 /** Abre o arquivo publicado: aceita CSV compactado (gzip) ou CSV puro. */

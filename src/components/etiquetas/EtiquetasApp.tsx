@@ -7,14 +7,17 @@ import {
   abrirArquivoBase,
   adivinhar,
   arquivoParaPublicar,
-  buscar,
   EXEMPLO,
   lerColagem,
   lerPlanilha,
   montarBase,
   parseCSV,
+  resolverCodigos,
+  separarCodigos,
   type Base,
   type Mapa,
+  type ModoBusca,
+  type Resolucao,
 } from "@/lib/etiquetas/planilha";
 import { larguraPagina, mmTxt, normRolo, ROLO_PADRAO, type Rolo } from "@/lib/etiquetas/rolo";
 
@@ -26,7 +29,7 @@ import { EtiquetaSvg } from "./EtiquetaSvg";
  * Primeiro o arquivo compactado; o CSV puro fica como reserva.
  */
 const ARQUIVOS_BASE = ["/base_produtos.csv.gz", "/base_produtos.csv"];
-const MAPA_PADRAO: Mapa = { cna: 0, ean: 1, alt: 2, desc: 3 };
+const MAPA_PADRAO: Mapa = { cna: 0, ean: 1, alt: 2, desc: 3, marca: 4 };
 
 type Origem = "publicada" | "local" | "exemplo";
 type BaseCarregada = Base & {
@@ -45,7 +48,12 @@ const AMOSTRA: Produto = {
   ean: "7898590390969",
   alt: "106002",
   desc: "TAMPA PROTECAO CORREIA EXTERNA",
+  marca: "2M PLASTIC",
 };
+const MODOS: [ModoBusca, string][] = [
+  ["cna", "CNA ou EAN"],
+  ["alt", "Código alternativo"],
+];
 
 function Mensagem({ msg }: { msg: Msg }) {
   return (
@@ -98,6 +106,8 @@ export function EtiquetasApp() {
   const [rolo, setRolo] = useState<Rolo>(ROLO_PADRAO);
   const [pronto, setPronto] = useState(false);
   const [busca, setBusca] = useState("");
+  const [modo, setModo] = useState<ModoBusca>("cna");
+  const [escolhas, setEscolhas] = useState<Resolucao["escolher"]>([]);
   const [qtd, setQtd] = useState("1");
   const [msgBusca, setMsgBusca] = useState<Msg>(null);
   const [colar, setColar] = useState("");
@@ -119,6 +129,7 @@ export function EtiquetasApp() {
     setItens(lista);
     setSel(lista.length ? 0 : -1);
     setRolo(normRolo(ler("etq.rolo", ROLO_PADRAO)));
+    setModo(ler<ModoBusca>("etq.modo", "cna") === "alt" ? "alt" : "cna");
     setPronto(true);
   }, []);
   useEffect(() => {
@@ -197,53 +208,91 @@ export function EtiquetasApp() {
     setSel(ultimo);
   }
 
+  /** Aplica o resultado da busca: adiciona o que achou e guarda o que precisa de escolha. */
+  function aplicar(res: Resolucao, entradas: number) {
+    if (res.achados.length) adicionar(res.achados);
+    if (res.escolher.length) setEscolhas((atuais) => [...atuais, ...res.escolher]);
+    const partes: string[] = [];
+    const unico = res.achados[0];
+    if (entradas === 1 && unico)
+      partes.push(
+        `CNA ${unico.cna} adicionado (${unico.qtd} ${unico.qtd > 1 ? "etiquetas" : "etiqueta"}).`,
+      );
+    else if (res.achados.length)
+      partes.push(
+        `${res.achados.length} ${res.achados.length === 1 ? "produto adicionado" : "produtos adicionados"}.`,
+      );
+    if (res.escolher.length)
+      partes.push(
+        res.escolher.length === 1
+          ? `O código ${res.escolher[0]?.codigo} existe em mais de um produto: escolha abaixo.`
+          : `${res.escolher.length} códigos existem em mais de um produto: escolha abaixo.`,
+      );
+    if (res.faltam.length) {
+      const resto = res.faltam.length > 8 ? ` e mais ${res.faltam.length - 8}` : "";
+      const nome = modo === "alt" ? "código alternativo" : "CNA ou EAN";
+      partes.push(
+        entradas === 1
+          ? `"${res.faltam[0]}" não está na base como ${nome}.`
+          : `Não estão na base como ${nome}: ${res.faltam.slice(0, 8).join(", ")}${resto}.`,
+      );
+    }
+    setMsgBusca({ tipo: res.faltam.length ? "erro" : "ok", texto: partes.join(" ") });
+  }
+
   function aoAdicionar(e: FormEvent) {
     e.preventDefault();
-    const txt = busca.trim();
-    if (!txt) return;
+    const codigos = separarCodigos(busca);
+    if (!codigos.length) return;
     const q = limitarQtd(qtd);
     if (!base) {
       setMsgBusca({ tipo: "erro", texto: "Carregue a base de produtos antes de adicionar." });
       return;
     }
-    const p = buscar(base, txt);
-    if (!p) {
-      setMsgBusca({ tipo: "erro", texto: `"${txt}" não está na base de produtos.` });
-      buscaRef.current?.select();
-      return;
-    }
-    adicionar([{ cna: p.cna, qtd: q }]);
-    setMsgBusca({
-      tipo: "ok",
-      texto: `CNA ${p.cna} adicionado (${q} ${q > 1 ? "etiquetas" : "etiqueta"}).`,
-    });
-    setBusca("");
-    setQtd("1");
+    const res = resolverCodigos(
+      base,
+      modo,
+      codigos.map((codigo) => ({ codigo, qtd: q })),
+    );
+    aplicar(res, codigos.length);
+    // O que não foi achado fica no campo para corrigir.
+    setBusca(res.faltam.join(";"));
+    if (!res.faltam.length) setQtd("1");
     buscaRef.current?.focus();
+    if (res.faltam.length) requestAnimationFrame(() => buscaRef.current?.select());
   }
 
   function aoColar() {
-    const linhas = lerColagem(colar);
-    const ok: Item[] = [];
-    const faltam: string[] = [];
-    for (const l of linhas) {
-      const p = base ? buscar(base, l.cna) : null;
-      if (base && !p) faltam.push(l.cna);
-      else ok.push({ cna: p ? p.cna : l.cna, qtd: l.qtd });
+    if (!base) {
+      setMsgBusca({ tipo: "erro", texto: "Carregue a base de produtos antes de adicionar." });
+      return;
     }
-    if (ok.length) adicionar(ok);
-    if (faltam.length) {
-      const resto = faltam.length > 8 ? ` e mais ${faltam.length - 8}` : "";
-      setMsgBusca({
-        tipo: "erro",
-        texto: `${ok.length} adicionados. Não estão na base: ${faltam.slice(0, 8).join(", ")}${resto}.`,
-      });
-    } else
-      setMsgBusca({
-        tipo: "ok",
-        texto: `${ok.length} ${ok.length === 1 ? "produto adicionado" : "produtos adicionados"}.`,
-      });
-    if (ok.length) setColar("");
+    const linhas = lerColagem(colar);
+    const res = resolverCodigos(
+      base,
+      modo,
+      linhas.map((l) => ({ codigo: l.cna, qtd: l.qtd })),
+    );
+    aplicar(res, linhas.length);
+    if (res.achados.length || res.escolher.length) setColar("");
+  }
+
+  function escolher(i: number, p: Produto) {
+    const e = escolhas[i];
+    if (!e) return;
+    adicionar([{ cna: p.cna, qtd: e.qtd }]);
+    setEscolhas(escolhas.filter((_, k) => k !== i));
+    setMsgBusca({
+      tipo: "ok",
+      texto: `CNA ${p.cna} adicionado (${e.qtd} ${e.qtd > 1 ? "etiquetas" : "etiqueta"}).`,
+    });
+  }
+
+  function mudarModo(m: ModoBusca) {
+    setModo(m);
+    guardar("etq.modo", m);
+    setMsgBusca(null);
+    buscaRef.current?.focus();
   }
 
   function limpar() {
@@ -489,6 +538,7 @@ export function EtiquetasApp() {
                         ["ean", "Coluna do EAN", true],
                         ["alt", "Coluna do código alternativo", true],
                         ["desc", "Coluna da descrição", true],
+                        ["marca", "Coluna da marca", true],
                       ] as const
                     ).map(([campo, rotulo, opcional]) => (
                       <div className="etq-campo" key={campo}>
@@ -520,6 +570,7 @@ export function EtiquetasApp() {
                           <th>CNA</th>
                           <th>Cód. alternativo</th>
                           <th>Descrição</th>
+                          <th>Marca</th>
                           <th>EAN</th>
                         </tr>
                       </thead>
@@ -531,6 +582,7 @@ export function EtiquetasApp() {
                             <td className="desc" title={p.desc}>
                               {p.desc || "—"}
                             </td>
+                            <td>{p.marca || "—"}</td>
                             <td>{p.ean || "—"}</td>
                           </tr>
                         ))}
@@ -594,7 +646,7 @@ export function EtiquetasApp() {
                 <ol className="etq-passos">
                   <li>
                     Clique em <b>Abrir arquivo da base</b> e escolha a exportação do sistema (CSV ou
-                    Excel) com CNA, EAN, código alternativo e descrição.
+                    Excel) com CNA, EAN, código alternativo, descrição e marca.
                   </li>
                   <li>
                     Confira as colunas e clique em <b>Baixar arquivo para publicar</b>. Sai um
@@ -619,16 +671,32 @@ export function EtiquetasApp() {
                 <h2 id="t-add">Adicionar produtos</h2>
                 <span className="etq-sec">Digite ou bipe o código e aperte Enter</span>
               </header>
+              <div className="etq-modo" role="radiogroup" aria-label="Buscar por">
+                <span className="etq-rotulo">Buscar por</span>
+                {MODOS.map(([v, nome]) => (
+                  <button
+                    key={v}
+                    type="button"
+                    role="radio"
+                    aria-checked={modo === v}
+                    onClick={() => mudarModo(v)}
+                  >
+                    {nome}
+                  </button>
+                ))}
+              </div>
               <form className="etq-linha-add" onSubmit={aoAdicionar} noValidate>
                 <div className="etq-campo">
-                  <label htmlFor="busca">CNA ou código de barras</label>
+                  <label htmlFor="busca">
+                    {modo === "alt" ? "Código alternativo" : "CNA ou código de barras"}
+                  </label>
                   <input
                     ref={buscaRef}
                     id="busca"
                     type="text"
                     autoComplete="off"
                     autoFocus
-                    placeholder="Ex.: 100245"
+                    placeholder={modo === "alt" ? "Ex.: 106002;106003" : "Ex.: 921173;921174"}
                     value={busca}
                     onChange={(e) => setBusca(e.target.value)}
                   />
@@ -649,13 +717,76 @@ export function EtiquetasApp() {
                   Adicionar
                 </button>
               </form>
+              <span className="etq-sec">
+                Vários códigos de uma vez? Separe com <b>;</b> — todos entram com a mesma quantidade
+                de etiquetas.
+              </span>
               <Mensagem msg={msgBusca} />
+              {escolhas.length > 0 && (
+                <div className="etq-escolha">
+                  {escolhas.map((e, i) => (
+                    <div className="etq-escolha-item" key={e.codigo + "-" + i}>
+                      <div className="etq-escolha-tit">
+                        <span>
+                          O código alternativo <b>{e.codigo}</b> existe em {e.opcoes.length}{" "}
+                          produtos. Escolha qual imprimir ({e.qtd}{" "}
+                          {e.qtd === 1 ? "etiqueta" : "etiquetas"}):
+                        </span>
+                        <button
+                          type="button"
+                          className="etq-link"
+                          onClick={() => setEscolhas(escolhas.filter((_, k) => k !== i))}
+                        >
+                          Ignorar
+                        </button>
+                      </div>
+                      <div className="etq-tabela-wrap">
+                        <table className="etq-amostra">
+                          <thead>
+                            <tr>
+                              <th>Marca</th>
+                              <th>CNA</th>
+                              <th>Descrição</th>
+                              <th>EAN</th>
+                              <th>
+                                <span className="sr-only">Escolher</span>
+                              </th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {e.opcoes.map((p) => (
+                              <tr key={p.cna}>
+                                <td>{p.marca || "—"}</td>
+                                <td>{p.cna}</td>
+                                <td className="desc" title={p.desc}>
+                                  {p.desc || "—"}
+                                </td>
+                                <td>{p.ean || "—"}</td>
+                                <td>
+                                  <button
+                                    type="button"
+                                    className="etq-btn sec2 pequeno"
+                                    onClick={() => escolher(i, p)}
+                                  >
+                                    Adicionar
+                                  </button>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
               <details className="etq-detalhes">
                 <summary>Colar uma lista do Excel</summary>
                 <div className="etq-detalhes-in">
                   <span className="etq-sec">
-                    Copie duas colunas do Excel, CNA e quantidade, e cole aqui. Uma linha por
-                    produto.
+                    Copie duas colunas do Excel, código e quantidade, e cole aqui. Uma linha por
+                    produto. O código segue o modo escolhido acima (
+                    {modo === "alt" ? "código alternativo" : "CNA ou EAN"}).
                   </span>
                   <textarea
                     id="colar"

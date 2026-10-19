@@ -487,6 +487,58 @@ body {
   box-decoration-break: clone;
 }
 
+/* Busca: modo e escolha de código alternativo repetido */
+.etq-modo {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.etq-modo .etq-rotulo {
+  margin-right: 4px;
+}
+.etq-modo button {
+  border: 1px solid var(--borda);
+  background: transparent;
+  color: var(--titulo);
+  border-radius: 999px;
+  padding: 5px 14px;
+  cursor: pointer;
+  font-weight: 500;
+}
+.etq-modo button[aria-checked="true"] {
+  background: var(--primario);
+  border-color: var(--primario);
+  color: var(--primario-texto);
+}
+.etq-escolha {
+  display: grid;
+  gap: 12px;
+}
+.etq-escolha-item {
+  border: 1px solid var(--destaque);
+  border-radius: 6px;
+  padding: 10px 12px;
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+.etq-escolha-tit {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  font-size: 14px;
+}
+.etq-escolha-tit b {
+  color: var(--titulo);
+}
+.etq-btn.pequeno {
+  min-height: 32px;
+  padding: 4px 10px;
+  font-size: 14px;
+}
+
 /* Lista */
 .etq-tabela-wrap {
   position: relative;

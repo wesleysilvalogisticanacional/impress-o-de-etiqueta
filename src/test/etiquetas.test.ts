@@ -17,6 +17,8 @@ import {
   lerColagem,
   montarBase,
   parseCSV,
+  resolverCodigos,
+  separarCodigos,
 } from "@/lib/etiquetas/planilha";
 import { larguraPagina, normRolo, ROLO_PADRAO } from "@/lib/etiquetas/rolo";
 
@@ -56,6 +58,7 @@ describe("desenho da etiqueta 50 × 30 mm", () => {
         ean: "7898590390969",
         alt: "106002",
         desc: "TAMPA PROTECAO CORREIA EXTERNA",
+        marca: "",
       },
       rolo,
       medir,
@@ -84,7 +87,7 @@ describe("desenho da etiqueta 50 × 30 mm", () => {
     const desc =
       "CHAVE ACIONADORA SETA C/ LAMPEJO FAROL C/ BUZINA C/ LIMPADOR C/ LAVADOR C/ ESGUICHO C/ TEMPOR. C/ COMP. BORDO C/ RETORNO AUT.";
     const { formas } = desenhar(
-      { cna: "123456", ean: "7891234567895", alt: "AB-1", desc },
+      { cna: "123456", ean: "7891234567895", alt: "AB-1", desc, marca: "" },
       rolo,
       medir,
     );
@@ -98,7 +101,7 @@ describe("desenho da etiqueta 50 × 30 mm", () => {
 
   it("descrição curta usa 1 linha e o código de barras sobe", () => {
     const { formas } = desenhar(
-      { cna: "1", ean: "7896543210982", alt: "X9", desc: "FILTRO" },
+      { cna: "1", ean: "7896543210982", alt: "X9", desc: "FILTRO", marca: "" },
       rolo,
       medir,
     );
@@ -108,9 +111,11 @@ describe("desenho da etiqueta 50 × 30 mm", () => {
 
   it("sem código alternativo o destaque é o CNA; sem EAN sai sem barras e avisa", () => {
     expect(
-      textos(desenhar({ cna: "7", ean: "", alt: "", desc: "JUNTA" }, rolo, medir).formas),
+      textos(
+        desenhar({ cna: "7", ean: "", alt: "", desc: "JUNTA", marca: "" }, rolo, medir).formas,
+      ),
     ).toEqual(["CNA 7", "JUNTA"]);
-    const semEan = desenhar({ cna: "2", ean: "", alt: "KT1", desc: "" }, rolo, medir);
+    const semEan = desenhar({ cna: "2", ean: "", alt: "KT1", desc: "", marca: "" }, rolo, medir);
     expect(semEan.formas.some((f) => f.t === "bar")).toBe(false);
     expect(semEan.avisos).toHaveLength(1);
   });
@@ -141,14 +146,14 @@ describe("base de produtos", () => {
       "Código CNA;Cód. Alternativo;EAN\n00100245;ABC-4521;7891234567895\n100246;;7,89654E+12\n",
     );
     const m = adivinhar(linhas[0] ?? []);
-    expect(m).toEqual({ cna: 0, alt: 1, ean: 2, desc: -1 });
+    expect(m).toEqual({ cna: 0, alt: 1, ean: 2, desc: -1, marca: -1 });
     const b = montarBase(linhas, m);
     expect(b.total).toBe(2);
     expect(b.cientifica).toBe(1);
     expect(buscar(b, "100245")?.alt).toBe("ABC-4521");
     expect(buscar(b, "7891234567895")?.cna).toBe("00100245");
     expect(baseParaCSV(b)).toBe(
-      "cna;ean;alternativo;descricao\n00100245;7891234567895;ABC-4521;\n100246;;;\n",
+      "cna;ean;alternativo;descricao;marca\n00100245;7891234567895;ABC-4521;;\n100246;;;;\n",
     );
   });
 
@@ -162,7 +167,7 @@ describe("base de produtos", () => {
         ["4", "ESTAMOS AGUARDANDO INFORMAÇÃO MATRIZ", "D"],
         ["5", "AS640397001501", "E"],
       ],
-      { cna: 0, ean: 1, alt: 2, desc: -1 },
+      { cna: 0, ean: 1, alt: 2, desc: -1, marca: -1 },
     );
     expect(buscar(b, "1")?.ean).toBe("7899849808785");
     expect(buscar(b, "2")?.ean).toBe("4041248904091");
@@ -178,18 +183,57 @@ describe("base de produtos", () => {
       ["2M PLASTIC", "106002", "921173", "7898590390969", "TAMPA\u00a0PROTECAO  CORREIA\u009d"],
     ];
     const m = adivinhar(linhas[0] ?? []);
-    expect(m).toEqual({ cna: 2, alt: 1, ean: 3, desc: 4 });
+    expect(m).toEqual({ cna: 2, alt: 1, ean: 3, desc: 4, marca: 0 });
     const b = montarBase(linhas, m);
     expect(buscar(b, "921173")).toEqual({
       cna: "921173",
       ean: "7898590390969",
       alt: "106002",
       desc: "TAMPA PROTECAO CORREIA",
+      marca: "2M PLASTIC",
     });
     expect(b.comDesc).toBe(1);
     expect(baseParaCSV(b)).toBe(
-      "cna;ean;alternativo;descricao\n921173;7898590390969;106002;TAMPA PROTECAO CORREIA\n",
+      "cna;ean;alternativo;descricao;marca\n921173;7898590390969;106002;TAMPA PROTECAO CORREIA;2M PLASTIC\n",
     );
+  });
+
+  it("busca por CNA/EAN ou por código alternativo, com vários códigos separados por ;", () => {
+    const b = montarBase(
+      [
+        ["MARCA", "COD_ALTERNATIVO", "CNA", "COD_BARRAS", "DESCRICAO_PRODUTO"],
+        ["2M PLASTIC", "106002", "921173", "7898590390969", "TAMPA PROTECAO CORREIA EXTERNA"],
+        ["INDISA", "106002", "146790", "7899999999994", "REPARO BOMBA AGUA KIT"],
+        ["2M PLASTIC", "106003", "921174", "7898590391003", "TAMPA INFERIOR"],
+      ],
+      adivinhar(["MARCA", "COD_ALTERNATIVO", "CNA", "COD_BARRAS", "DESCRICAO_PRODUTO"]),
+    );
+    expect(separarCodigos(" 921173; 921174 ;;\n106003 ")).toEqual(["921173", "921174", "106003"]);
+
+    const porCna = resolverCodigos(b, "cna", [
+      { codigo: "921173", qtd: 2 },
+      { codigo: "7898590391003", qtd: 1 },
+      { codigo: "106002", qtd: 1 },
+    ]);
+    expect(porCna.achados).toEqual([
+      { cna: "921173", qtd: 2 },
+      { cna: "921174", qtd: 1 },
+    ]);
+    expect(porCna.faltam).toEqual(["106002"]);
+
+    const porAlt = resolverCodigos(b, "alt", [
+      { codigo: "106003", qtd: 3 },
+      { codigo: "106002", qtd: 1 },
+      { codigo: "7898590390969", qtd: 1 },
+      { codigo: "999", qtd: 1 },
+    ]);
+    expect(porAlt.achados).toEqual([
+      { cna: "921174", qtd: 3 },
+      { cna: "921173", qtd: 1 },
+    ]);
+    expect(porAlt.escolher).toHaveLength(1);
+    expect(porAlt.escolher[0]?.opcoes.map((p) => p.marca)).toEqual(["2M PLASTIC", "INDISA"]);
+    expect(porAlt.faltam).toEqual(["999"]);
   });
 
   it("lê a lista colada do Excel", () => {

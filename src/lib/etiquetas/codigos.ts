@@ -2,8 +2,8 @@ import JsBarcode from "jsbarcode";
 
 import { mmTxt, type Rolo } from "./rolo";
 
-/** alt = código alternativo; desc = descrição do produto. */
-export type Produto = { cna: string; ean: string; alt: string; desc: string };
+/** alt = código alternativo; desc = descrição do produto; marca = fabricante. */
+export type Produto = { cna: string; ean: string; alt: string; desc: string; marca: string };
 
 export type Forma =
   | { t: "bar"; x: number; y: number; w: number; h: number }
