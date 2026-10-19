@@ -523,6 +523,11 @@ body {
   background: var(--linha-sel);
   box-shadow: inset 3px 0 0 var(--destaque);
 }
+.etq-app td.desc {
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 .etq-lista td.cna {
   font-weight: 700;
   color: var(--titulo);
@@ -660,7 +665,7 @@ body {
 /* Importação */
 .etq-mapa {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: 12px;
 }
 @media (max-width: 640px) {

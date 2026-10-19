@@ -36,6 +36,7 @@ export function EtiquetaSvg({ formas, rolo, impressao, style }: Props) {
             textAnchor={o.a}
             fill={tinta}
             fontFamily="Helvetica, Arial, sans-serif"
+            {...(o.comp ? { textLength: o.comp, lengthAdjust: "spacingAndGlyphs" } : {})}
           >
             {o.s}
           </text>

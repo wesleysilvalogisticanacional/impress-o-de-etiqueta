@@ -1,6 +1,15 @@
 import { describe, expect, it } from "vitest";
 
-import { chave, codificar, desenhar, eanOk } from "@/lib/etiquetas/codigos";
+import {
+  chave,
+  codificar,
+  desenhar,
+  eanOk,
+  PT_MM,
+  quebrar,
+  type Forma,
+  type Medidor,
+} from "@/lib/etiquetas/codigos";
 import {
   adivinhar,
   baseParaCSV,
@@ -35,35 +44,81 @@ describe("códigos de barras", () => {
 
 describe("desenho da etiqueta 50 × 30 mm", () => {
   const rolo = ROLO_PADRAO;
+  // Medida fixa e previsível para o teste (no navegador a medida vem da fonte real).
+  const medir: Medidor = (t, pt, b) => t.length * pt * PT_MM * (b ? 0.62 : 0.55);
+  const larguraTexto = (50 - 2 * 2.5) * 0.97;
+  const textos = (f: Forma[]) => f.filter((x) => x.t === "txt").map((x) => x.s);
 
-  it("EAN grande com módulo de 0,375 mm, centralizado e dentro da etiqueta", () => {
+  it("código alternativo em destaque, CNA - descrição abaixo e EAN grande", () => {
     const { formas, avisos } = desenhar(
-      { cna: "100245", ean: "7891234567895", alt: "ABC-4521" },
+      {
+        cna: "921173",
+        ean: "7898590390969",
+        alt: "106002",
+        desc: "TAMPA PROTECAO CORREIA EXTERNA",
+      },
       rolo,
+      medir,
     );
     expect(avisos).toEqual([]);
+    const t = textos(formas);
+    expect(t[0]).toBe("106002");
+    expect(t.slice(1, -1).join(" ")).toBe("CNA 921173 - TAMPA PROTECAO CORREIA EXTERNA");
+    expect(t.at(-1)).toBe("7898590390969");
+    const destaque = formas[0];
+    expect(destaque).toMatchObject({ t: "txt", b: true, pt: 11 });
+
     const barras = formas.filter((f) => f.t === "bar");
     const x0 = Math.min(...barras.map((b) => b.x));
     const x1 = Math.max(...barras.map((b) => b.x + b.w));
     expect(x1 - x0).toBeCloseTo(95 * 0.375, 5);
     expect((x0 + x1) / 2).toBeCloseTo(25, 5);
     for (const b of barras) {
-      expect(b.y).toBeCloseTo(11.6, 5);
-      expect(b.h).toBeCloseTo(13, 5);
+      expect(b.y).toBeCloseTo(12.6, 5);
+      expect(b.y + b.h).toBeCloseTo(25, 5);
       expect((b.w / 0.375) % 1).toBeCloseTo(0, 5);
     }
-    const textos = formas.filter((f) => f.t === "txt").map((f) => f.s);
-    expect(textos).toEqual(["CNA 100245", "Ref.: ABC-4521", "7891234567895"]);
   });
 
-  it("sem referência o código sobe e cresce; sem EAN sai sem barras e avisa", () => {
-    const semRef = desenhar({ cna: "1", ean: "7896543210982", alt: "" }, rolo).formas.find(
-      (f) => f.t === "bar",
+  it("descrição longa fica em 2 linhas, cabe na etiqueta e termina com …", () => {
+    const desc =
+      "CHAVE ACIONADORA SETA C/ LAMPEJO FAROL C/ BUZINA C/ LIMPADOR C/ LAVADOR C/ ESGUICHO C/ TEMPOR. C/ COMP. BORDO C/ RETORNO AUT.";
+    const { formas } = desenhar(
+      { cna: "123456", ean: "7891234567895", alt: "AB-1", desc },
+      rolo,
+      medir,
     );
-    expect(semRef).toMatchObject({ y: 8.2 });
-    const semEan = desenhar({ cna: "2", ean: "", alt: "KT1" }, rolo);
+    const linhas = formas.filter((f) => f.t === "txt").slice(1, -1);
+    expect(linhas).toHaveLength(2);
+    for (const l of linhas)
+      if (l.t === "txt") expect(medir(l.s, l.pt, false)).toBeLessThanOrEqual(larguraTexto);
+    expect(linhas[1]?.t === "txt" && linhas[1].s.endsWith("…")).toBe(true);
+    expect(linhas[0]?.t === "txt" && linhas[0].s.startsWith("CNA 123456 - CHAVE")).toBe(true);
+  });
+
+  it("descrição curta usa 1 linha e o código de barras sobe", () => {
+    const { formas } = desenhar(
+      { cna: "1", ean: "7896543210982", alt: "X9", desc: "FILTRO" },
+      rolo,
+      medir,
+    );
+    expect(textos(formas)).toEqual(["X9", "CNA 1 - FILTRO", "7896543210982"]);
+    expect(formas.find((f) => f.t === "bar")).toMatchObject({ y: 10 });
+  });
+
+  it("sem código alternativo o destaque é o CNA; sem EAN sai sem barras e avisa", () => {
+    expect(
+      textos(desenhar({ cna: "7", ean: "", alt: "", desc: "JUNTA" }, rolo, medir).formas),
+    ).toEqual(["CNA 7", "JUNTA"]);
+    const semEan = desenhar({ cna: "2", ean: "", alt: "KT1", desc: "" }, rolo, medir);
     expect(semEan.formas.some((f) => f.t === "bar")).toBe(false);
     expect(semEan.avisos).toHaveLength(1);
+  });
+
+  it("quebra de linha respeita o limite de linhas", () => {
+    const q = quebrar("UM DOIS TRES QUATRO CINCO SEIS", 10, 7, medir, 2);
+    expect(q.linhas).toHaveLength(2);
+    expect(q.cortou).toBe(true);
   });
 });
 
@@ -86,13 +141,15 @@ describe("base de produtos", () => {
       "Código CNA;Cód. Alternativo;EAN\n00100245;ABC-4521;7891234567895\n100246;;7,89654E+12\n",
     );
     const m = adivinhar(linhas[0] ?? []);
-    expect(m).toEqual({ cna: 0, alt: 1, ean: 2 });
+    expect(m).toEqual({ cna: 0, alt: 1, ean: 2, desc: -1 });
     const b = montarBase(linhas, m);
     expect(b.total).toBe(2);
     expect(b.cientifica).toBe(1);
     expect(buscar(b, "100245")?.alt).toBe("ABC-4521");
     expect(buscar(b, "7891234567895")?.cna).toBe("00100245");
-    expect(baseParaCSV(b)).toBe("cna;ean;alternativo\n00100245;7891234567895;ABC-4521\n100246;;\n");
+    expect(baseParaCSV(b)).toBe(
+      "cna;ean;alternativo;descricao\n00100245;7891234567895;ABC-4521;\n100246;;;\n",
+    );
   });
 
   it("limpa caracteres invisíveis e descarta texto no lugar do EAN", () => {
@@ -105,7 +162,7 @@ describe("base de produtos", () => {
         ["4", "ESTAMOS AGUARDANDO INFORMAÇÃO MATRIZ", "D"],
         ["5", "AS640397001501", "E"],
       ],
-      { cna: 0, ean: 1, alt: 2 },
+      { cna: 0, ean: 1, alt: 2, desc: -1 },
     );
     expect(buscar(b, "1")?.ean).toBe("7899849808785");
     expect(buscar(b, "2")?.ean).toBe("4041248904091");
@@ -113,6 +170,26 @@ describe("base de produtos", () => {
     expect(buscar(b, "4")?.ean).toBe("");
     expect(buscar(b, "5")?.ean).toBe("AS640397001501");
     expect(b.invalidos).toBe(1);
+  });
+
+  it("lê a planilha da Rede ANCORA com descrição e limpa caracteres estranhos", () => {
+    const linhas = [
+      ["MARCA", "COD_ALTERNATIVO", "CNA", "COD_BARRAS", "DESCRICAO_PRODUTO"],
+      ["2M PLASTIC", "106002", "921173", "7898590390969", "TAMPA\u00a0PROTECAO  CORREIA\u009d"],
+    ];
+    const m = adivinhar(linhas[0] ?? []);
+    expect(m).toEqual({ cna: 2, alt: 1, ean: 3, desc: 4 });
+    const b = montarBase(linhas, m);
+    expect(buscar(b, "921173")).toEqual({
+      cna: "921173",
+      ean: "7898590390969",
+      alt: "106002",
+      desc: "TAMPA PROTECAO CORREIA",
+    });
+    expect(b.comDesc).toBe(1);
+    expect(baseParaCSV(b)).toBe(
+      "cna;ean;alternativo;descricao\n921173;7898590390969;106002;TAMPA PROTECAO CORREIA\n",
+    );
   });
 
   it("lê a lista colada do Excel", () => {

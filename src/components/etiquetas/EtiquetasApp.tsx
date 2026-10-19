@@ -2,11 +2,12 @@ import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 
 import { guardar, ler } from "@/lib/etiquetas/armazenamento";
 import { chave, desenhar, type Forma, type Produto } from "@/lib/etiquetas/codigos";
+import { medirTexto } from "@/lib/etiquetas/medir";
 import {
+  abrirArquivoBase,
   adivinhar,
-  baseParaCSV,
+  arquivoParaPublicar,
   buscar,
-  decodificar,
   EXEMPLO,
   lerColagem,
   lerPlanilha,
@@ -20,8 +21,12 @@ import { larguraPagina, mmTxt, normRolo, ROLO_PADRAO, type Rolo } from "@/lib/et
 import { Cabecalho } from "./Cabecalho";
 import { EtiquetaSvg } from "./EtiquetaSvg";
 
-/** Base publicada para todas as filiais: arquivo public/base_produtos.csv do repositório. */
-const ARQUIVO_BASE = "/base_produtos.csv";
+/**
+ * Base publicada para todas as filiais, na pasta public do repositório.
+ * Primeiro o arquivo compactado; o CSV puro fica como reserva.
+ */
+const ARQUIVOS_BASE = ["/base_produtos.csv.gz", "/base_produtos.csv"];
+const MAPA_PADRAO: Mapa = { cna: 0, ean: 1, alt: 2, desc: 3 };
 
 type Origem = "publicada" | "local" | "exemplo";
 type BaseCarregada = Base & {
@@ -35,7 +40,12 @@ type Importacao = { nome: string; linhas: string[][]; mapa: Mapa };
 
 const fmtN = (n: number) => n.toLocaleString("pt-BR");
 const limitarQtd = (v: unknown) => Math.max(1, Math.min(999, parseInt(String(v), 10) || 1));
-const AMOSTRA: Produto = { cna: "100245", ean: "7891234567895", alt: "ABC-4521" };
+const AMOSTRA: Produto = {
+  cna: "921173",
+  ean: "7898590390969",
+  alt: "106002",
+  desc: "TAMPA PROTECAO CORREIA EXTERNA",
+};
 
 function Mensagem({ msg }: { msg: Msg }) {
   return (
@@ -123,20 +133,24 @@ export function EtiquetasApp() {
     let vivo = true;
     (async () => {
       try {
-        const r = await fetch(ARQUIVO_BASE, { cache: "no-cache" });
-        if (!r.ok) {
-          if (vivo) setEstadoBase(r.status === 404 ? "vazia" : "erro");
-          return;
+        let achou: { r: Response; txt: string; nome: string } | null = null;
+        for (const arq of ARQUIVOS_BASE) {
+          const r = await fetch(arq, { cache: "no-cache" });
+          if (!r.ok) continue;
+          const txt = await abrirArquivoBase(await r.arrayBuffer());
+          // Endereço inexistente pode devolver a própria página (HTML): pula para o próximo.
+          if (txt.trimStart().startsWith("<")) continue;
+          achou = { r, txt, nome: arq.slice(1) };
+          break;
         }
-        const tipo = r.headers.get("content-type") || "";
-        const txt = decodificar(await r.arrayBuffer());
-        if (tipo.includes("html") || txt.trimStart().startsWith("<")) {
+        if (!achou) {
           if (vivo) setEstadoBase("vazia");
           return;
         }
+        const { r, txt, nome } = achou;
         const linhas = parseCSV(txt);
-        const m = linhas[0] ? adivinhar(linhas[0]) : { cna: -1, ean: -1, alt: -1 };
-        const b = montarBase(linhas, m.cna < 0 ? { cna: 0, ean: 1, alt: 2 } : m);
+        const m = linhas[0] ? adivinhar(linhas[0]) : MAPA_PADRAO;
+        const b = montarBase(linhas, m.cna < 0 ? MAPA_PADRAO : m, m.cna >= 0);
         if (!vivo) return;
         if (!b.total) {
           setEstadoBase("vazia");
@@ -148,7 +162,7 @@ export function EtiquetasApp() {
             : {
                 ...b,
                 origem: "publicada",
-                nome: "base_produtos.csv",
+                nome,
                 quando: r.headers.get("last-modified"),
               },
         );
@@ -277,24 +291,24 @@ export function EtiquetasApp() {
     });
     fecharImportacao();
   }
-  function baixarParaPublicar() {
+  async function baixarParaPublicar() {
     if (!baseImp) return;
-    const blob = new Blob([baseParaCSV(baseImp)], { type: "text/csv;charset=utf-8" });
+    const { nome, blob } = await arquivoParaPublicar(baseImp);
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
-    a.download = "base_produtos.csv";
+    a.download = nome;
     document.body.appendChild(a);
     a.click();
     a.remove();
     setTimeout(() => URL.revokeObjectURL(a.href), 1000);
     setMsgBase({
       tipo: "ok",
-      texto: `Arquivo base_produtos.csv baixado com ${fmtN(baseImp.total)} produtos. Envie para a pasta public do GitHub para publicar.`,
+      texto: `Arquivo ${nome} baixado com ${fmtN(baseImp.total)} produtos. Envie para a pasta public do GitHub para publicar.`,
     });
   }
   function usarExemplo() {
     setBase({
-      ...montarBase(EXEMPLO, { cna: 0, ean: 1, alt: 2 }),
+      ...montarBase(EXEMPLO, MAPA_PADRAO),
       origem: "exemplo",
       nome: undefined,
       quando: null,
@@ -318,7 +332,7 @@ export function EtiquetasApp() {
   function imprimir() {
     const fila: Forma[][] = [];
     for (const { p, qtd: q } of imprimiveis) {
-      const { formas } = desenhar(p, rolo);
+      const { formas } = desenhar(p, rolo, medirTexto);
       for (let k = 0; k < q; k++) fila.push(formas);
     }
     const pags: Forma[][][] = [];
@@ -348,7 +362,7 @@ export function EtiquetasApp() {
   const W = larguraPagina(rolo);
   const itemSel = itens[sel];
   const pSel = itemSel ? produto(itemSel.cna) : null;
-  const previa = desenhar(pSel ?? AMOSTRA, rolo);
+  const previa = desenhar(pSel ?? AMOSTRA, rolo, medirTexto);
   const linhas = Math.ceil(totalEtiquetas / rolo.cols);
   let totalLista = 0;
   let prodLista = 0;
@@ -377,7 +391,9 @@ export function EtiquetasApp() {
           );
       }
       if (base.nome && base.origem === "local") partes.push(base.nome);
-      partes.push(`${fmtN(base.comEan)} com EAN · ${fmtN(base.comAlt)} com referência`);
+      partes.push(
+        `${fmtN(base.comEan)} com EAN · ${fmtN(base.comAlt)} com código alternativo · ${fmtN(base.comDesc)} com descrição`,
+      );
       return {
         ponto: "ok",
         titulo: origem,
@@ -471,7 +487,8 @@ export function EtiquetasApp() {
                       [
                         ["cna", "Coluna do CNA", false],
                         ["ean", "Coluna do EAN", true],
-                        ["alt", "Coluna do código alternativo (referência)", true],
+                        ["alt", "Coluna do código alternativo", true],
+                        ["desc", "Coluna da descrição", true],
                       ] as const
                     ).map(([campo, rotulo, opcional]) => (
                       <div className="etq-campo" key={campo}>
@@ -501,16 +518,20 @@ export function EtiquetasApp() {
                       <thead>
                         <tr>
                           <th>CNA</th>
+                          <th>Cód. alternativo</th>
+                          <th>Descrição</th>
                           <th>EAN</th>
-                          <th>Referência</th>
                         </tr>
                       </thead>
                       <tbody>
                         {[...baseImp.byCna.values()].slice(0, 3).map((p) => (
                           <tr key={p.cna}>
                             <td>{p.cna}</td>
-                            <td>{p.ean || "—"}</td>
                             <td>{p.alt || "—"}</td>
+                            <td className="desc" title={p.desc}>
+                              {p.desc || "—"}
+                            </td>
+                            <td>{p.ean || "—"}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -573,16 +594,16 @@ export function EtiquetasApp() {
                 <ol className="etq-passos">
                   <li>
                     Clique em <b>Abrir arquivo da base</b> e escolha a exportação do sistema (CSV ou
-                    Excel) com CNA, EAN e código alternativo.
+                    Excel) com CNA, EAN, código alternativo e descrição.
                   </li>
                   <li>
                     Confira as colunas e clique em <b>Baixar arquivo para publicar</b>. Sai um
-                    arquivo <b>base_produtos.csv</b>.
+                    arquivo <b>base_produtos.csv.gz</b> (a base compactada).
                   </li>
                   <li>
                     No GitHub, abra a pasta <b>public</b> do repositório, clique em{" "}
-                    <b>Add file › Upload files</b>, envie o <b>base_produtos.csv</b> (ele substitui
-                    o anterior) e confirme em <b>Commit changes</b>.
+                    <b>Add file › Upload files</b>, envie o <b>base_produtos.csv.gz</b> (ele
+                    substitui o anterior) e confirme em <b>Commit changes</b>.
                   </li>
                   <li>
                     No Lovable, clique em <b>Publish › Update</b> para o site publicado passar a
@@ -680,9 +701,10 @@ export function EtiquetasApp() {
                     <table className="etq-lista">
                       <thead>
                         <tr>
+                          <th>Cód. alternativo</th>
                           <th>CNA</th>
+                          <th>Descrição</th>
                           <th>EAN</th>
-                          <th>Referência</th>
                           <th>Etiquetas</th>
                           <th>
                             <span className="sr-only">Tirar</span>
@@ -700,14 +722,18 @@ export function EtiquetasApp() {
                                 !(e.target as HTMLElement).closest("input,button") && setSel(i)
                               }
                             >
-                              <td className="cna">{it.cna}</td>
                               {p ? (
                                 <>
+                                  <td className="cna">{p.alt || "—"}</td>
+                                  <td>{it.cna}</td>
+                                  <td className="desc" title={p.desc}>
+                                    {p.desc || "—"}
+                                  </td>
                                   <td>{p.ean || <span className="etq-chip">sem EAN</span>}</td>
-                                  <td>{p.alt || "—"}</td>
                                 </>
                               ) : (
-                                <td colSpan={2}>
+                                <td colSpan={4}>
+                                  <b>{it.cna}</b>{" "}
                                   <span className="etq-chip">
                                     {base ? "Não está na base" : "Aguardando a base"}
                                   </span>
@@ -778,7 +804,8 @@ export function EtiquetasApp() {
                   aria-label="Prévia da etiqueta"
                   style={{ aspectRatio: `${rolo.larg} / ${rolo.alt}` }}
                 >
-                  <EtiquetaSvg formas={previa.formas} rolo={rolo} />
+                  {/* Só depois de abrir no navegador: a quebra de linha usa a fonte real. */}
+                  {pronto && <EtiquetaSvg formas={previa.formas} rolo={rolo} />}
                 </div>
               </div>
               <p className="etq-legenda">

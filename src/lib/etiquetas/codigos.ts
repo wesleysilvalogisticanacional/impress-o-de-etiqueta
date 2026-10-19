@@ -2,11 +2,38 @@ import JsBarcode from "jsbarcode";
 
 import { mmTxt, type Rolo } from "./rolo";
 
-export type Produto = { cna: string; ean: string; alt: string };
+/** alt = código alternativo; desc = descrição do produto. */
+export type Produto = { cna: string; ean: string; alt: string; desc: string };
 
 export type Forma =
   | { t: "bar"; x: number; y: number; w: number; h: number }
-  | { t: "txt"; x: number; y: number; pt: number; b?: boolean; a: "start" | "middle"; s: string };
+  | {
+      t: "txt";
+      x: number;
+      y: number;
+      pt: number;
+      b?: boolean;
+      a: "start" | "middle";
+      s: string;
+      /** Largura máxima em mm: o texto é comprimido para caber, nunca passa da etiqueta. */
+      comp?: number;
+    };
+
+/** Mede a largura de um texto em mm, em Helvetica/Arial no tamanho `pt`. */
+export type Medidor = (texto: string, pt: number, negrito: boolean) => number;
+
+/** Medida aproximada (Helvetica), usada fora do navegador e como reserva. */
+export const medirAprox: Medidor = (texto, pt, negrito) => {
+  let em = 0;
+  for (const c of texto) {
+    if (c === " ") em += 0.278;
+    else if (/[0-9]/.test(c)) em += 0.556;
+    else if (/[A-Z]/.test(c)) em += c === "M" || c === "W" ? 0.85 : c === "I" ? 0.3 : 0.68;
+    else if (/[a-z]/.test(c)) em += c === "m" || c === "w" ? 0.8 : /[ijlft]/.test(c) ? 0.28 : 0.53;
+    else em += 0.4;
+  }
+  return em * (negrito ? 1.07 : 1) * pt * PT_MM;
+};
 
 /** CNA e EAN são comparados em maiúsculas e sem zeros à esquerda. */
 export const chave = (s: string) => {
@@ -51,34 +78,119 @@ export function codificar(codigo: string): Codificado | null {
   return { formato, bits: alvo.encodings.map((e) => e.data).join(""), texto: cod };
 }
 
+/** Quebra o texto em até `maxLinhas` linhas que caibam em `larg` mm; corta com "…" se sobrar. */
+export function quebrar(
+  texto: string,
+  larg: number,
+  pt: number,
+  medir: Medidor,
+  maxLinhas: number,
+): { linhas: string[]; cortou: boolean } {
+  const palavras = texto.split(/\s+/).filter(Boolean);
+  const linhas: string[] = [];
+  let atual = "";
+  let i = 0;
+  for (; i < palavras.length; i++) {
+    const w = palavras[i] as string;
+    const tentativa = atual ? atual + " " + w : w;
+    if (medir(tentativa, pt, false) <= larg) {
+      atual = tentativa;
+      continue;
+    }
+    if (atual) {
+      linhas.push(atual);
+      if (linhas.length === maxLinhas) break;
+    }
+    atual = w;
+  }
+  if (linhas.length < maxLinhas && atual) {
+    linhas.push(atual);
+    atual = "";
+    i = palavras.length;
+  }
+  const cortou = i < palavras.length || linhas.some((l) => medir(l, pt, false) > larg);
+  if (cortou && linhas.length) {
+    let ultima = linhas[linhas.length - 1] as string;
+    if (i < palavras.length) ultima = ultima + " " + palavras.slice(i).join(" ");
+    while (ultima.length > 1 && medir(ultima + "…", pt, false) > larg) ultima = ultima.slice(0, -1);
+    linhas[linhas.length - 1] = ultima.trimEnd() + "…";
+  }
+  return { linhas, cortou };
+}
+
 /**
  * Desenho de UMA etiqueta em mm — a mesma lista de formas vai para a prévia e para a impressão.
- * Layout aprovado em 50 × 30 mm: CNA em negrito, "Ref.: …" abaixo e o EAN grande.
+ * Layout aprovado em 50 × 30 mm:
+ *   1. código alternativo em destaque (negrito);
+ *   2. "CNA 921173 - DESCRIÇÃO DO PRODUTO", em até 2 linhas;
+ *   3. código de barras do EAN, com os dígitos embaixo.
  * Outras medidas escalam posições e letras; as barras mantêm larguras múltiplas
  * do ponto da impressora (0,125 mm a 203 dpi).
  */
-export function desenhar(p: Produto, rolo: Rolo): { formas: Forma[]; avisos: string[] } {
+export function desenhar(
+  p: Produto,
+  rolo: Rolo,
+  medir: Medidor = medirAprox,
+): { formas: Forma[]; avisos: string[] } {
   const W = rolo.larg;
   const H = rolo.alt;
   const sx = W / 50;
   const sy = H / 30;
   const sf = Math.max(0.6, Math.min(sx, sy, 1.6));
   const mx = Math.max(1.5, 2.5 * sx);
+  const larguraTexto = (W - 2 * mx) * 0.97;
   const util = W - 2 * Math.max(2, 2 * sx);
   const f: Forma[] = [];
   const avisos: string[] = [];
 
-  f.push({ t: "txt", x: mx, y: 5.6 * sy, pt: 11 * sf, b: true, a: "start", s: "CNA " + p.cna });
-  if (p.alt)
-    f.push({ t: "txt", x: mx, y: 9.8 * sy, pt: 8.5 * sf, a: "start", s: "Ref.: " + p.alt });
+  // 1. Destaque: código alternativo (ou o CNA, se o produto não tiver alternativo).
+  const destaque = p.alt || "CNA " + p.cna;
+  let ptD = 11 * sf;
+  while (ptD > 7 * sf && medir(destaque, ptD, true) > larguraTexto) ptD -= 0.5 * sf;
+  const comprimeD = medir(destaque, ptD, true) > larguraTexto;
+  f.push({
+    t: "txt",
+    x: mx,
+    y: 5.4 * sy,
+    pt: ptD,
+    b: true,
+    a: "start",
+    s: destaque,
+    ...(comprimeD ? { comp: larguraTexto } : {}),
+  });
+
+  // 2. "CNA 921173 - DESCRIÇÃO", em até 2 linhas (encolhe e, se ainda não couber, corta com "…").
+  const linha2 = p.alt ? "CNA " + p.cna + (p.desc ? " - " + p.desc : "") : p.desc;
+  let linhas: string[] = [];
+  if (linha2) {
+    let pt2 = 7 * sf;
+    let q = quebrar(linha2, larguraTexto, pt2, medir, 2);
+    if (q.cortou) {
+      pt2 = 6 * sf;
+      q = quebrar(linha2, larguraTexto, pt2, medir, 2);
+    }
+    linhas = q.linhas;
+    // textLength só quando a linha passaria da largura: estica nunca, só comprime.
+    linhas.forEach((s, i) =>
+      f.push({
+        t: "txt",
+        x: mx,
+        y: (8.9 + i * 2.6) * sy,
+        pt: pt2,
+        a: "start",
+        s,
+        ...(medir(s, pt2, false) > larguraTexto ? { comp: larguraTexto } : {}),
+      }),
+    );
+  }
 
   if (!p.ean) {
     avisos.push("Este produto não tem EAN na base; a etiqueta sai sem código de barras");
     return { formas: f, avisos };
   }
-  const v = p.alt
-    ? { y: 11.6 * sy, h: 13 * sy, ty: 28.3 * sy }
-    : { y: 8.2 * sy, h: 16.4 * sy, ty: 28.3 * sy };
+  // 3. Código de barras: começa logo abaixo do texto e vai até 25 mm.
+  const topo = (linhas.length >= 2 ? 12.6 : linhas.length === 1 ? 10.0 : 7.4) * sy;
+  const v = { y: topo, h: 25.0 * sy - topo, ty: 28.4 * sy };
   const e = codificar(p.ean);
   if (!e) {
     avisos.push("O EAN " + p.ean + " tem caracteres que o código de barras não aceita");
@@ -97,7 +209,7 @@ export function desenhar(p: Produto, rolo: Rolo): { formas: Forma[]; avisos: str
       i0 = -1;
     }
   }
-  f.push({ t: "txt", x: W / 2, y: v.ty, pt: 9.5 * sf, a: "middle", s: e.texto });
+  f.push({ t: "txt", x: W / 2, y: v.ty, pt: 9 * sf, a: "middle", s: e.texto });
   return { formas: f, avisos };
 }
 

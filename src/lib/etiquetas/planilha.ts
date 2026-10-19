@@ -7,12 +7,13 @@ export type Base = {
   total: number;
   comEan: number;
   comAlt: number;
+  comDesc: number;
   cientifica: number;
   /** EANs descartados por não poderem virar código de barras (texto com acento, frase…). */
   invalidos: number;
 };
 
-export type Mapa = { cna: number; ean: number; alt: number };
+export type Mapa = { cna: number; ean: number; alt: number; desc: number };
 
 const semAcento = (s: string) => String(s).normalize("NFD").replace(/[̀-ͯ]/g, "");
 export const normCab = (s: string) =>
@@ -169,11 +170,22 @@ export function adivinhar(cab: string[]): Mapa {
     ],
     [cna, alt],
   );
-  return { cna, ean, alt };
+  const desc = achar(
+    [(h) => h.startsWith("descri"), (h) => h.includes("descri"), (h) => h === "nome"],
+    [cna, alt, ean],
+  );
+  return { cna, ean, alt, desc };
 }
 
 /** Tira espaços, tabulações e caracteres invisíveis que vêm colados de outros sistemas. */
 export const limparCodigo = (s: string) => s.replace(/[\s\u00ad\u200b-\u200f\u2060\ufeff]/g, "");
+/** Descrição em uma linha: sem caracteres de controle, espaço especial vira espaço comum. */
+export const limparTexto = (s: string) =>
+  s
+    // eslint-disable-next-line no-control-regex -- remover caracteres de controle é o objetivo
+    .replace(/[\u0000-\u001f\u007f-\u009f\u00ad\u200b-\u200f\u2060\ufeff]/g, " ")
+    .replace(/[\s\u00a0]+/g, " ")
+    .trim();
 /** Só ASCII visível e até 48 caracteres vira código de barras; o resto é descartado. */
 const CODIGO_IMPRIMIVEL = /^[\x21-\x7e]{1,48}$/;
 
@@ -187,7 +199,8 @@ export function montarBase(linhas: string[][], m: Mapa, comCab = true): Base {
     const cna = (r[m.cna] || "").trim();
     if (!cna) continue;
     let ean = m.ean >= 0 ? limparCodigo(r[m.ean] || "") : "";
-    const alt = m.alt >= 0 ? (r[m.alt] || "").trim() : "";
+    const alt = m.alt >= 0 ? limparTexto(r[m.alt] || "") : "";
+    const desc = m.desc >= 0 ? limparTexto(r[m.desc] || "") : "";
     if (/\d[.,]\d+e\+?\d+/i.test(ean)) {
       cientifica++;
       ean = "";
@@ -198,33 +211,35 @@ export function montarBase(linhas: string[][], m: Mapa, comCab = true): Base {
     const k = chave(cna);
     const ex = byCna.get(k);
     if (!ex) {
-      const p = { cna, ean, alt };
+      const p = { cna, ean, alt, desc };
       byCna.set(k, p);
       if (ean) byEan.set(chave(ean), p);
     } else if (!ex.ean && ean) {
       ex.ean = ean;
       byEan.set(chave(ean), ex);
       if (!ex.alt) ex.alt = alt;
+      if (!ex.desc) ex.desc = desc;
     }
   }
   let comEan = 0;
   let comAlt = 0;
+  let comDesc = 0;
   for (const p of byCna.values()) {
     if (p.ean) comEan++;
     if (p.alt) comAlt++;
+    if (p.desc) comDesc++;
   }
-  return { byCna, byEan, total: byCna.size, comEan, comAlt, cientifica, invalidos };
+  return { byCna, byEan, total: byCna.size, comEan, comAlt, comDesc, cientifica, invalidos };
 }
 
-/** Formato do arquivo publicado em public/base_produtos.csv. */
+/** Formato do arquivo publicado em public/base_produtos.csv.gz (CSV compactado). */
 export function baseParaCSV(b: Base): string {
   const limpa = (s: string) =>
     String(s)
       .replace(/[;\r\n"]/g, " ")
       .trim();
-  const out = ["cna;ean;alternativo"];
-  for (const p of b.byCna.values())
-    out.push(limpa(p.cna) + ";" + limpa(p.ean) + ";" + limpa(p.alt));
+  const out = ["cna;ean;alternativo;descricao"];
+  for (const p of b.byCna.values()) out.push([p.cna, p.ean, p.alt, p.desc].map(limpa).join(";"));
   return out.join("\n") + "\n";
 }
 
@@ -256,8 +271,28 @@ export function lerColagem(texto: string): { cna: string; qtd: number }[] {
 }
 
 export const EXEMPLO: string[][] = [
-  ["cna", "ean", "alternativo"],
-  ["100245", "7891234567895", "ABC-4521"],
-  ["100246", "7896543210982", ""],
-  ["200771", "", "KT90210X"],
+  ["cna", "ean", "alternativo", "descricao"],
+  ["100245", "7891234567895", "ABC-4521", "FILTRO OLEO MOTOR"],
+  ["100246", "7896543210982", "PF2210", "PASTILHA FREIO DIANTEIRA CERAMICA C/ SENSOR DE DESGASTE"],
+  ["200771", "", "KT90210X", "KIT CORREIA DENTADA C/ TENSOR"],
 ];
+
+/** Abre o arquivo publicado: aceita CSV compactado (gzip) ou CSV puro. */
+export async function abrirArquivoBase(buf: ArrayBuffer): Promise<string> {
+  const b = new Uint8Array(buf);
+  if (b[0] === 0x1f && b[1] === 0x8b) {
+    if (typeof DecompressionStream === "undefined")
+      throw new Error("Este navegador não abre a base compactada. Atualize o Chrome ou o Edge.");
+    const fluxo = new Blob([buf]).stream().pipeThrough(new DecompressionStream("gzip"));
+    return decodificar(await new Response(fluxo).arrayBuffer());
+  }
+  return decodificar(buf);
+}
+
+/** Gera o arquivo para publicar: compactado quando o navegador permite (fica ~4× menor). */
+export async function arquivoParaPublicar(b: Base): Promise<{ nome: string; blob: Blob }> {
+  const csv = new Blob([baseParaCSV(b)], { type: "text/csv;charset=utf-8" });
+  if (typeof CompressionStream === "undefined") return { nome: "base_produtos.csv", blob: csv };
+  const fluxo = csv.stream().pipeThrough(new CompressionStream("gzip"));
+  return { nome: "base_produtos.csv.gz", blob: await new Response(fluxo).blob() };
+}
