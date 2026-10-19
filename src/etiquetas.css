@@ -198,6 +198,28 @@ body {
   width: 16px;
   height: 16px;
 }
+.etq-sair {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 8px;
+  padding: 4px 12px;
+  border: 1px solid var(--topo-divisor);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--topo-sec);
+  cursor: pointer;
+  font: inherit;
+  font-size: 14px;
+  flex: none;
+}
+.etq-sair:hover {
+  color: var(--topo-texto);
+}
+.etq-sair svg {
+  width: 16px;
+  height: 16px;
+}
 @media (max-width: 640px) {
   .etq-topo-in {
     flex-wrap: wrap;
