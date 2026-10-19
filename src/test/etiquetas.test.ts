@@ -83,6 +83,37 @@ describe("desenho da etiqueta 50 × 30 mm", () => {
     }
   });
 
+  it("fornecedor ao lado do código alternativo, sem sair da etiqueta", () => {
+    const { formas } = desenhar(
+      { cna: "921173", ean: "7898590390969", alt: "106002", desc: "TAMPA", marca: "2M PLASTIC" },
+      rolo,
+      medir,
+    );
+    const [cod, forn] = formas;
+    expect(cod).toMatchObject({ t: "txt", s: "106002", b: true, pt: 11 });
+    expect(forn).toMatchObject({ t: "txt", s: "2M PLASTIC", y: cod?.t === "txt" ? cod.y : -1 });
+    if (cod?.t === "txt" && forn?.t === "txt") {
+      expect(forn.x).toBeGreaterThan(cod.x + medir(cod.s, cod.pt, true));
+      expect(forn.x - 2.5 + medir(forn.s, forn.pt, false)).toBeLessThanOrEqual(larguraTexto);
+    }
+    // Fornecedor longo encolhe e, se preciso, termina com …
+    const longo = desenhar(
+      {
+        cna: "1",
+        ean: "",
+        alt: "HC000399499",
+        desc: "",
+        marca: "FORNECEDOR COM NOME MUITO GRANDE LTDA",
+      },
+      rolo,
+      medir,
+    ).formas;
+    const f2 = longo[1];
+    expect(f2?.t === "txt" && f2.s.endsWith("…")).toBe(true);
+    if (longo[0]?.t === "txt" && f2?.t === "txt")
+      expect(f2.x - 2.5 + medir(f2.s, f2.pt, false)).toBeLessThanOrEqual(larguraTexto + 1e-9);
+  });
+
   it("descrição longa fica em 2 linhas, cabe na etiqueta e termina com …", () => {
     const desc =
       "CHAVE ACIONADORA SETA C/ LAMPEJO FAROL C/ BUZINA C/ LIMPADOR C/ LAVADOR C/ ESGUICHO C/ TEMPOR. C/ COMP. BORDO C/ RETORNO AUT.";

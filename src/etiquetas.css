@@ -580,6 +580,9 @@ body {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+.etq-app td.desc.forn {
+  max-width: 120px;
+}
 .etq-lista td.cna {
   font-weight: 700;
   color: var(--titulo);

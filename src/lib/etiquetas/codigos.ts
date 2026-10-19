@@ -143,11 +143,21 @@ export function desenhar(
   const f: Forma[] = [];
   const avisos: string[] = [];
 
-  // 1. Destaque: código alternativo (ou o CNA, se o produto não tiver alternativo).
+  // 1. Destaque: código alternativo (ou o CNA, se não houver) e, ao lado, o fornecedor.
   const destaque = p.alt || "CNA " + p.cna;
+  const fornecedor = p.marca;
+  const vao = 1.8 * sf;
   let ptD = 11 * sf;
+  let ptF = 7.5 * sf;
+  const larguraLinha1 = () =>
+    medir(destaque, ptD, true) + (fornecedor ? vao + medir(fornecedor, ptF, false) : 0);
+  // Primeiro diminui o fornecedor; o código diminui no máximo até 9 pt por causa dele
+  // (o código é o principal). Depois disso o fornecedor é cortado com "…".
+  while (fornecedor && ptF > 6 * sf && larguraLinha1() > larguraTexto) ptF -= 0.5 * sf;
+  while (fornecedor && ptD > 9 * sf && larguraLinha1() > larguraTexto) ptD -= 0.5 * sf;
   while (ptD > 7 * sf && medir(destaque, ptD, true) > larguraTexto) ptD -= 0.5 * sf;
-  const comprimeD = medir(destaque, ptD, true) > larguraTexto;
+  const wD = medir(destaque, ptD, true);
+  const comprimeD = wD > larguraTexto;
   f.push({
     t: "txt",
     x: mx,
@@ -158,6 +168,15 @@ export function desenhar(
     s: destaque,
     ...(comprimeD ? { comp: larguraTexto } : {}),
   });
+  const sobra = larguraTexto - wD - vao;
+  if (fornecedor && sobra >= 5) {
+    let txtF = fornecedor;
+    if (medir(txtF, ptF, false) > sobra) {
+      while (txtF.length > 1 && medir(txtF + "…", ptF, false) > sobra) txtF = txtF.slice(0, -1);
+      txtF = txtF.trimEnd() + "…";
+    }
+    f.push({ t: "txt", x: mx + wD + vao, y: 5.4 * sy, pt: ptF, a: "start", s: txtF });
+  }
 
   // 2. "CNA 921173 - DESCRIÇÃO", em até 2 linhas (encolhe e, se ainda não couber, corta com "…").
   const linha2 = p.alt ? "CNA " + p.cna + (p.desc ? " - " + p.desc : "") : p.desc;

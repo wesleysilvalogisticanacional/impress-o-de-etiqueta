@@ -6,7 +6,7 @@ ou bipa um ou mais códigos (separados por `;`), escolhe a quantidade e clica em
 página impressa é uma linha do rolo, com 2 etiquetas de 50 × 30 mm. Quando um código alternativo
 existe em mais de um produto, o app mostra marca, CNA e descrição para escolher.
 
-Etiqueta: código alternativo em destaque, "CNA 921173 - DESCRIÇÃO DO PRODUTO" abaixo (até 2 linhas;
+Etiqueta: código alternativo em destaque com o fornecedor ao lado, "CNA 921173 - DESCRIÇÃO DO PRODUTO" abaixo (até 2 linhas;
 descrição longa termina com "…") e o código de barras do EAN.
 
 ## Atualizar a base de produtos (sem gastar crédito do Lovable)

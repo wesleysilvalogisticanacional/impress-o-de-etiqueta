@@ -538,7 +538,7 @@ export function EtiquetasApp() {
                         ["ean", "Coluna do EAN", true],
                         ["alt", "Coluna do código alternativo", true],
                         ["desc", "Coluna da descrição", true],
-                        ["marca", "Coluna da marca", true],
+                        ["marca", "Coluna do fornecedor (marca)", true],
                       ] as const
                     ).map(([campo, rotulo, opcional]) => (
                       <div className="etq-campo" key={campo}>
@@ -570,7 +570,7 @@ export function EtiquetasApp() {
                           <th>CNA</th>
                           <th>Cód. alternativo</th>
                           <th>Descrição</th>
-                          <th>Marca</th>
+                          <th>Fornecedor</th>
                           <th>EAN</th>
                         </tr>
                       </thead>
@@ -744,7 +744,7 @@ export function EtiquetasApp() {
                         <table className="etq-amostra">
                           <thead>
                             <tr>
-                              <th>Marca</th>
+                              <th>Fornecedor</th>
                               <th>CNA</th>
                               <th>Descrição</th>
                               <th>EAN</th>
@@ -833,6 +833,7 @@ export function EtiquetasApp() {
                       <thead>
                         <tr>
                           <th>Cód. alternativo</th>
+                          <th>Fornecedor</th>
                           <th>CNA</th>
                           <th>Descrição</th>
                           <th>EAN</th>
@@ -856,6 +857,9 @@ export function EtiquetasApp() {
                               {p ? (
                                 <>
                                   <td className="cna">{p.alt || "—"}</td>
+                                  <td className="desc forn" title={p.marca}>
+                                    {p.marca || "—"}
+                                  </td>
                                   <td>{it.cna}</td>
                                   <td className="desc" title={p.desc}>
                                     {p.desc || "—"}
@@ -863,7 +867,7 @@ export function EtiquetasApp() {
                                   <td>{p.ean || <span className="etq-chip">sem EAN</span>}</td>
                                 </>
                               ) : (
-                                <td colSpan={4}>
+                                <td colSpan={5}>
                                   <b>{it.cna}</b>{" "}
                                   <span className="etq-chip">
                                     {base ? "Não está na base" : "Aguardando a base"}
