@@ -36,7 +36,7 @@ function Login() {
       sessionStorage.removeItem("oidc_logout_pending");
     }
     const e = q.get("erro");
-    if (e) setErro(ERROS[e] ?? ERROS.falha);
+    if (e) setErro(ERROS[e] ?? ERROS["falha"] ?? null);
   }, []);
 
   const entrar = async () => {

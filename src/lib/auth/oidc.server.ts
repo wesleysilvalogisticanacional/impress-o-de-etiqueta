@@ -8,9 +8,9 @@ export const DURACAO_SESSAO_S = 60 * 60 * 8; // 8 h
 export class OidcNaoConfigurado extends Error {}
 
 export function configOidc() {
-  const issuer = (process.env.OIDC_ISSUER_URL || "https://id.redeancora.com.br").replace(/\/$/, "");
-  const clientId = process.env.OIDC_CLIENT_ID;
-  const clientSecret = process.env.OIDC_CLIENT_SECRET;
+  const issuer = (process.env["OIDC_ISSUER_URL"] || "https://id.redeancora.com.br").replace(/\/$/, "");
+  const clientId = process.env["OIDC_CLIENT_ID"];
+  const clientSecret = process.env["OIDC_CLIENT_SECRET"];
   if (!clientId || !clientSecret) {
     throw new OidcNaoConfigurado("Login OIDC não configurado — aguardando credenciais da TI");
   }
@@ -66,7 +66,7 @@ export function extrairEmail(claims: Record<string, unknown> | JWTPayload | null
     const v = (claims as Record<string, unknown>)[k];
     if (typeof v === "string" && v.includes("@")) return v.trim();
   }
-  const sub = (claims as Record<string, unknown>).sub;
+  const sub = (claims as Record<string, unknown>)["sub"];
   if (typeof sub === "string" && sub.includes("@")) return sub.trim();
   return null;
 }
