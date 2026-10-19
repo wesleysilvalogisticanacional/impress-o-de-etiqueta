@@ -10,33 +10,89 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ApiPublicOidcCallbackRouteImport } from './routes/api/public/oidc/callback'
+import { Route as ApiPublicOidcLoginRouteImport } from './routes/api/public/oidc/login'
+import { Route as ApiPublicOidcMeRouteImport } from './routes/api/public/oidc/me'
+import { Route as ApiPublicOidcSignoutRouteImport } from './routes/api/public/oidc/signout'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicOidcCallbackRoute = ApiPublicOidcCallbackRouteImport.update({
+  id: '/api/public/oidc/callback',
+  path: '/api/public/oidc/callback',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicOidcLoginRoute = ApiPublicOidcLoginRouteImport.update({
+  id: '/api/public/oidc/login',
+  path: '/api/public/oidc/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicOidcMeRoute = ApiPublicOidcMeRouteImport.update({
+  id: '/api/public/oidc/me',
+  path: '/api/public/oidc/me',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicOidcSignoutRoute = ApiPublicOidcSignoutRouteImport.update({
+  id: '/api/public/oidc/signout',
+  path: '/api/public/oidc/signout',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/api/public/oidc/callback': typeof ApiPublicOidcCallbackRoute
+  '/api/public/oidc/login': typeof ApiPublicOidcLoginRoute
+  '/api/public/oidc/me': typeof ApiPublicOidcMeRoute
+  '/api/public/oidc/signout': typeof ApiPublicOidcSignoutRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/api/public/oidc/callback': typeof ApiPublicOidcCallbackRoute
+  '/api/public/oidc/login': typeof ApiPublicOidcLoginRoute
+  '/api/public/oidc/me': typeof ApiPublicOidcMeRoute
+  '/api/public/oidc/signout': typeof ApiPublicOidcSignoutRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/api/public/oidc/callback': typeof ApiPublicOidcCallbackRoute
+  '/api/public/oidc/login': typeof ApiPublicOidcLoginRoute
+  '/api/public/oidc/me': typeof ApiPublicOidcMeRoute
+  '/api/public/oidc/signout': typeof ApiPublicOidcSignoutRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/api/public/oidc/callback'
+    | '/api/public/oidc/login'
+    | '/api/public/oidc/me'
+    | '/api/public/oidc/signout'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/'
+    | '/api/public/oidc/callback'
+    | '/api/public/oidc/login'
+    | '/api/public/oidc/me'
+    | '/api/public/oidc/signout'
+  id:
+    | '__root__'
+    | '/'
+    | '/api/public/oidc/callback'
+    | '/api/public/oidc/login'
+    | '/api/public/oidc/me'
+    | '/api/public/oidc/signout'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  ApiPublicOidcCallbackRoute: typeof ApiPublicOidcCallbackRoute
+  ApiPublicOidcLoginRoute: typeof ApiPublicOidcLoginRoute
+  ApiPublicOidcMeRoute: typeof ApiPublicOidcMeRoute
+  ApiPublicOidcSignoutRoute: typeof ApiPublicOidcSignoutRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -48,11 +104,43 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/oidc/callback': {
+      id: '/api/public/oidc/callback'
+      path: '/api/public/oidc/callback'
+      fullPath: '/api/public/oidc/callback'
+      preLoaderRoute: typeof ApiPublicOidcCallbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/oidc/login': {
+      id: '/api/public/oidc/login'
+      path: '/api/public/oidc/login'
+      fullPath: '/api/public/oidc/login'
+      preLoaderRoute: typeof ApiPublicOidcLoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/oidc/me': {
+      id: '/api/public/oidc/me'
+      path: '/api/public/oidc/me'
+      fullPath: '/api/public/oidc/me'
+      preLoaderRoute: typeof ApiPublicOidcMeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/oidc/signout': {
+      id: '/api/public/oidc/signout'
+      path: '/api/public/oidc/signout'
+      fullPath: '/api/public/oidc/signout'
+      preLoaderRoute: typeof ApiPublicOidcSignoutRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  ApiPublicOidcCallbackRoute: ApiPublicOidcCallbackRoute,
+  ApiPublicOidcLoginRoute: ApiPublicOidcLoginRoute,
+  ApiPublicOidcMeRoute: ApiPublicOidcMeRoute,
+  ApiPublicOidcSignoutRoute: ApiPublicOidcSignoutRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

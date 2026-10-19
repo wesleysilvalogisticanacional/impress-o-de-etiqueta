@@ -1,6 +1,7 @@
-import { Monitor, Moon, Sun } from "lucide-react";
+import { LogOut, Monitor, Moon, Sun } from "lucide-react";
 import { useEffect, useState } from "react";
 
+import { sair } from "@/lib/auth/sessao";
 import { guardar, ler } from "@/lib/etiquetas/armazenamento";
 
 // Logo oficial da Rede ANCORA, sempre pela URL fixa da CDN do manual da marca.
@@ -60,6 +61,9 @@ export function Cabecalho() {
             </button>
           ))}
         </div>
+        <button type="button" className="etq-sair" onClick={() => void sair()} title="Sair">
+          <LogOut strokeWidth={2} /> Sair
+        </button>
       </div>
     </header>
   );
