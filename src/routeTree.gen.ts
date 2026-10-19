@@ -10,6 +10,8 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as LoginRouteImport } from './routes/login'
+import { Route as AuthNegadoRouteImport } from './routes/auth.negado'
 import { Route as ApiPublicOidcCallbackRouteImport } from './routes/api/public/oidc/callback'
 import { Route as ApiPublicOidcLoginRouteImport } from './routes/api/public/oidc/login'
 import { Route as ApiPublicOidcMeRouteImport } from './routes/api/public/oidc/me'
@@ -18,6 +20,16 @@ import { Route as ApiPublicOidcSignoutRouteImport } from './routes/api/public/oi
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthNegadoRoute = AuthNegadoRouteImport.update({
+  id: '/auth/negado',
+  path: '/auth/negado',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiPublicOidcCallbackRoute = ApiPublicOidcCallbackRouteImport.update({
@@ -43,6 +55,8 @@ const ApiPublicOidcSignoutRoute = ApiPublicOidcSignoutRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/login': typeof LoginRoute
+  '/auth/negado': typeof AuthNegadoRoute
   '/api/public/oidc/callback': typeof ApiPublicOidcCallbackRoute
   '/api/public/oidc/login': typeof ApiPublicOidcLoginRoute
   '/api/public/oidc/me': typeof ApiPublicOidcMeRoute
@@ -50,6 +64,8 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/login': typeof LoginRoute
+  '/auth/negado': typeof AuthNegadoRoute
   '/api/public/oidc/callback': typeof ApiPublicOidcCallbackRoute
   '/api/public/oidc/login': typeof ApiPublicOidcLoginRoute
   '/api/public/oidc/me': typeof ApiPublicOidcMeRoute
@@ -58,6 +74,8 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/login': typeof LoginRoute
+  '/auth/negado': typeof AuthNegadoRoute
   '/api/public/oidc/callback': typeof ApiPublicOidcCallbackRoute
   '/api/public/oidc/login': typeof ApiPublicOidcLoginRoute
   '/api/public/oidc/me': typeof ApiPublicOidcMeRoute
@@ -67,6 +85,8 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/login'
+    | '/auth/negado'
     | '/api/public/oidc/callback'
     | '/api/public/oidc/login'
     | '/api/public/oidc/me'
@@ -74,6 +94,8 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/login'
+    | '/auth/negado'
     | '/api/public/oidc/callback'
     | '/api/public/oidc/login'
     | '/api/public/oidc/me'
@@ -81,6 +103,8 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/login'
+    | '/auth/negado'
     | '/api/public/oidc/callback'
     | '/api/public/oidc/login'
     | '/api/public/oidc/me'
@@ -89,6 +113,8 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  LoginRoute: typeof LoginRoute
+  AuthNegadoRoute: typeof AuthNegadoRoute
   ApiPublicOidcCallbackRoute: typeof ApiPublicOidcCallbackRoute
   ApiPublicOidcLoginRoute: typeof ApiPublicOidcLoginRoute
   ApiPublicOidcMeRoute: typeof ApiPublicOidcMeRoute
@@ -102,6 +128,20 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/auth/negado': {
+      id: '/auth/negado'
+      path: '/auth/negado'
+      fullPath: '/auth/negado'
+      preLoaderRoute: typeof AuthNegadoRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/public/oidc/callback': {
@@ -137,6 +177,8 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  LoginRoute: LoginRoute,
+  AuthNegadoRoute: AuthNegadoRoute,
   ApiPublicOidcCallbackRoute: ApiPublicOidcCallbackRoute,
   ApiPublicOidcLoginRoute: ApiPublicOidcLoginRoute,
   ApiPublicOidcMeRoute: ApiPublicOidcMeRoute,
